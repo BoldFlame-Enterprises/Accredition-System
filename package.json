@@ -1,0 +1,49 @@
+{
+  "name": "qr-accreditation-system",
+  "version": "1.0.0",
+  "description": "Complete QR Code-based Accreditation System for Sports Events",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "web-dashboard",
+    "qr-generator-app",
+    "scanner-app"
+  ],
+  "scripts": {
+    "install:all": "pnpm install && pnpm --recursive install",
+    "dev": "concurrently \"pnpm --filter backend dev\" \"pnpm --filter web-dashboard dev\"",
+    "build": "pnpm --recursive build",
+    "test": "pnpm --recursive test",
+    "clean": "pnpm --recursive clean && rm -rf node_modules",
+    "setup:db": "pnpm --filter backend setup:db",
+    "seed:db": "pnpm --filter backend seed:db",
+    "start:backend": "pnpm --filter backend start",
+    "start:web": "pnpm --filter web-dashboard start",
+    "build:backend": "pnpm --filter backend build",
+    "build:web": "pnpm --filter web-dashboard build",
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:web": "pnpm --filter web-dashboard dev",
+    "lint": "pnpm --recursive lint",
+    "type-check": "pnpm --recursive type-check"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "qr-code",
+    "accreditation",
+    "sports-event",
+    "access-control",
+    "security",
+    "react-native",
+    "react",
+    "typescript",
+    "node.js"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
