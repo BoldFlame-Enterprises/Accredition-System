@@ -27,7 +27,7 @@
     "type-check": "pnpm --recursive type-check"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^9.1.2"
   },
   "keywords": [
     "qr-code",
@@ -40,7 +40,7 @@
     "typescript",
     "node.js"
   ],
-  "author": "Your Name",
+  "author": "Aman Agnihotri",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0",
