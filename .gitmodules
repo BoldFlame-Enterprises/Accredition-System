@@ -1,0 +1,12 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/BoldFlame-Enterprises/sportgate-backend.git
+[submodule "web-dashboard"]
+	path = web-dashboard
+	url = https://github.com/BoldFlame-Enterprises/sportgate-dashboard.git
+[submodule "sportgate-pass"]
+	path = sportgate-pass
+	url = https://github.com/BoldFlame-Enterprises/sportgate-pass.git
+[submodule "sportgate-scan"]
+	path = sportgate-scan
+	url = https://github.com/BoldFlame-Enterprises/sportgate-scan.git
