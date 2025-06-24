@@ -368,7 +368,7 @@ class DatabaseServiceClass {
       }
 
       return { valid: true, payload };
-    } catch (error) {
+    } catch {
       return { valid: false, reason: 'Invalid QR data' };
     }
   }
@@ -445,7 +445,7 @@ class DatabaseServiceClass {
   }
 
   // Get demo users for display (without sensitive data)
-  async getDemoUsers(): Promise<Array<{email: string, name: string, access_level: string}>> {
+  async getDemoUsers(): Promise<{email: string, name: string, access_level: string}[]> {
     try {
       const users = await this.getAllUsers();
       return users.map(user => ({

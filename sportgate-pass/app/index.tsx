@@ -1,5 +1,4 @@
 // app/index.tsx - Landing/redirect page
-import { useEffect } from 'react';
 import { Redirect } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { useUser } from '@/context/UserContext';

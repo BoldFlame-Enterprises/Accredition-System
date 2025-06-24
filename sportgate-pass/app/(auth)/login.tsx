@@ -1,5 +1,5 @@
 // app/(auth)/login.tsx - Login screen
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,12 +22,19 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const { setUser } = useUser();
 
-  // Load stored email on component mount
-  useEffect(() => {
-    loadStoredCredentials();
-  }, []);
+  const handleAutoLogin = useCallback(async (storedEmail: string) => {
+    try {
+      const user = await DatabaseService.getUserByEmail(storedEmail.toLowerCase().trim());
+      if (user) {
+        setUser(user);
+        router.replace('/(main)/qr-display');
+      }
+    } catch (error) {
+      console.error('Auto-login failed:', error);
+    }
+  }, [setUser]);
 
-  const loadStoredCredentials = async () => {
+  const loadStoredCredentials = useCallback(async () => {
     try {
       const storedEmail = await DatabaseService.getStoredEmail();
       const isRecent = await DatabaseService.isLoginRecent();
@@ -45,19 +52,12 @@ export default function LoginScreen() {
     } catch (error) {
       console.error('Error loading stored credentials:', error);
     }
-  };
+  }, [handleAutoLogin]);
 
-  const handleAutoLogin = async (storedEmail: string) => {
-    try {
-      const user = await DatabaseService.getUserByEmail(storedEmail.toLowerCase().trim());
-      if (user) {
-        setUser(user);
-        router.replace('/(main)/qr-display');
-      }
-    } catch (error) {
-      console.error('Auto-login failed:', error);
-    }
-  };
+  // Load stored email on component mount
+  useEffect(() => {
+    loadStoredCredentials();
+  }, [loadStoredCredentials]);
 
   const handleLogin = async () => {
     if (!email.trim()) {
@@ -134,7 +134,7 @@ export default function LoginScreen() {
             try {
               await DatabaseService.resetDemoData();
               Alert.alert('Success', 'Demo data has been reset.');
-            } catch (error) {
+            } catch {
               Alert.alert('Error', 'Failed to reset demo data.');
             }
           }
