@@ -5,8 +5,8 @@
 	path = web-dashboard
 	url = https://github.com/BoldFlame-Enterprises/sportgate-dashboard.git
 [submodule "sportgate-pass"]
-	path = sportgate-pass
-	url = https://github.com/BoldFlame-Enterprises/sportgate-pass.git
+	path = verigate-pass
+	url = https://github.com/BoldFlame-Enterprises/verigate-pass.git
 [submodule "sportgate-scan"]
-	path = sportgate-scan
-	url = https://github.com/BoldFlame-Enterprises/sportgate-scan.git
+	path = verigate-scan
+	url = https://github.com/BoldFlame-Enterprises/verigate-scan.git

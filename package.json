@@ -1,13 +1,13 @@
 {
-  "name": "qr-accreditation-system",
+  "name": "verigate-access-control",
   "version": "1.0.0",
-  "description": "Complete QR Code-based Accreditation System for Sports Events",
+  "description": "VeriGate Access Control - Comprehensive QR Code-based Accreditation System for Events",
   "private": true,
   "workspaces": [
     "backend",
     "web-dashboard",
-    "qr-generator-app",
-    "scanner-app"
+    "verigate-pass",
+    "verigate-scan"
   ],
   "scripts": {
     "install:all": "pnpm install && pnpm --recursive install",
@@ -23,6 +23,10 @@
     "build:web": "pnpm --filter web-dashboard build",
     "dev:backend": "pnpm --filter backend dev",
     "dev:web": "pnpm --filter web-dashboard dev",
+    "start:pass": "pnpm --filter verigate-pass start",
+    "start:scan": "pnpm --filter verigate-scan start",
+    "android:pass": "pnpm --filter verigate-pass android",
+    "android:scan": "pnpm --filter verigate-scan android",
     "lint": "pnpm --recursive lint",
     "type-check": "pnpm --recursive type-check"
   },
@@ -30,15 +34,17 @@
     "concurrently": "^9.1.2"
   },
   "keywords": [
+    "verigate",
     "qr-code",
     "accreditation",
-    "sports-event",
     "access-control",
     "security",
+    "event-management",
     "react-native",
     "react",
     "typescript",
-    "node.js"
+    "node.js",
+    "offline-first"
   ],
   "author": "Aman Agnihotri",
   "license": "MIT",

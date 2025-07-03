@@ -1,4 +1,4 @@
-# Quick Start Guide - QR Accreditation System
+# Quick Start Guide - VeriGate Access Control
 
 ## ✅ Apps Are Ready
 
@@ -11,70 +11,70 @@ Both Android apps have been successfully created and are ready for testing.
 - Download **Expo Go** from Google Play Store on your Android phone
 - It's the official Expo development app for testing React Native apps
 
-### Step 2: Start the QR Generator App
+### Step 2: Start the VeriGate Pass App
 
 ```bash
-cd qr-generator-app
+cd verigate-pass
 pnpm start
 ```
 
 - A QR code will appear in the terminal
 - Open Expo Go on your phone and scan this QR code
-- The QR Generator app will load on your phone
+- The VeriGate Pass app will load on your phone
 
-### Step 3: Start the Scanner App (in a new terminal)
+### Step 3: Start the VeriGate Scan App (in a new terminal)
 
 ```bash
-cd scanner-app
+cd verigate-scan
 pnpm start
 ```
 
 - Another QR code will appear
-- Scan this QR code with Expo Go to load the Scanner app
+- Scan this QR code with Expo Go to load the VeriGate Scan app
 
 ## 📱 Testing the Complete System
 
 ### Test Scenario 1: VIP Access
 
-1. **QR Generator App**:
-   - Login with: `sarah.vip@company.com`
+1. **VeriGate Pass App**:
+   - Login with: `sarah.vip@verigate.com`
    - You'll see a QR code with VIP access level
 
-2. **Scanner App**:
-   - Login with: `scanner1@event.com`
+2. **VeriGate Scan App**:
+   - Login with: `scanner1@verigate.com`
    - Select area: "VIP Lounge"
    - Point camera at the QR code from the Generator app
    - Result: **ACCESS GRANTED** ✅
 
 ### Test Scenario 2: Access Denied
 
-1. **QR Generator App**:
-   - Login with: `john.athlete@sports.com` (General level)
+1. **VeriGate Pass App**:
+   - Login with: `john.attendee@verigate.com` (General level)
 
-2. **Scanner App**:
+2. **VeriGate Scan App**:
    - Select area: "VIP Lounge"
    - Scan the General user's QR code
    - Result: **ACCESS DENIED** ❌
 
 ## 🎯 Demo Users
 
-### QR Generator App (Event Attendees)
+### VeriGate Pass App (Event Attendees)
 
 ```
-john.athlete@sports.com     - General Level
-sarah.vip@company.com       - VIP Level
-mike.staff@event.com        - Staff Level
-emma.security@event.com     - Security Level
-david.manager@event.com     - Management Level (All areas)
+john.attendee@verigate.com     - General Level
+sarah.vip@verigate.com       - VIP Level
+mike.staff@verigate.com        - Staff Level
+emma.security@verigate.com     - Security Level
+david.manager@verigate.com     - Management Level (All areas)
 ```
 
-### Scanner App (Volunteers)
+### VeriGate Scan App (Volunteers)
 
 ```
-scanner1@event.com - Volunteer
-scanner2@event.com - Volunteer
-security@event.com - Security
-admin@event.com    - Admin
+scanner1@verigate.com - Volunteer
+scanner2@verigate.com - Volunteer
+security@verigate.com - Security
+admin@verigate.com    - Admin
 ```
 
 ## 🔧 Troubleshooting
@@ -87,7 +87,7 @@ admin@event.com    - Admin
 
 ### If QR code doesn't appear
 
-- Make sure you're in the correct directory (`qr-generator-app` or `scanner-app`)
+- Make sure you're in the correct directory (`verigate-pass` or `verigate-scan`)
 - Check that pnpm is installed: `pnpm --version`
 - Try `npm start` instead of `pnpm start`
 

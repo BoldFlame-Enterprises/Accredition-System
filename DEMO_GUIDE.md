@@ -1,4 +1,4 @@
-# QR Code Accreditation System - Demo Guide
+# VeriGate Access Control - Demo Guide
 
 This guide will help you showcase the Android apps to the events committee.
 
@@ -6,12 +6,12 @@ This guide will help you showcase the Android apps to the events committee.
 
 You now have **2 complete Android apps** that demonstrate a secure, offline-first QR code accreditation system:
 
-1. **QR Generator App** - For event attendees to display their access QR codes
-2. **Scanner App** - For volunteers to verify QR codes and grant/deny access
+1. **VeriGate Pass App** - For event attendees to display their access QR codes
+2. **VeriGate Scan App** - For volunteers to verify QR codes and grant/deny access
 
 ## 📱 What's Been Built
 
-### ✅ **QR Generator App Features**
+### ✅ **VeriGate Pass App Features**
 
 - **Anti-screenshot protection** (screenshots disabled when QR is displayed)
 - **Device-bound QR codes** that cannot be shared between devices
@@ -20,7 +20,7 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 - **Dynamic QR refresh** every 30 minutes for security
 - **Clean, professional UI** optimized for mobile use
 
-### ✅ **Scanner App Features**
+### ✅ **VeriGate Scan App Features**
 
 - **Real-time camera scanning** with instant feedback
 - **Offline verification** using local user database
@@ -41,17 +41,17 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 ### **Option 1: Development Testing (Recommended for Demo)**
 
 1. **Install Expo Go** on your Android phone from Google Play Store
-2. **Start QR Generator App**:
+2. **Start VeriGate Pass App**:
 
    ```bash
-   cd qr-generator-app
+   cd verigate-pass
    pnpm start
    ```
 
-3. **Start Scanner App** (in another terminal):
+3. **Start VeriGate Scan App** (in another terminal):
 
    ```bash
-   cd scanner-app
+   cd verigate-scan
    pnpm start
    ```
 
@@ -84,14 +84,14 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 
 ### **1. Introduction (2 minutes)**
 
-"Today I'll demonstrate a complete QR code accreditation system designed specifically for sports events. This system addresses key challenges like network reliability, security, and ease of use for volunteers."
+"Today I'll demonstrate a complete QR code accreditation system designed specifically for events. This system addresses key challenges like network reliability, security, and ease of use for volunteers."
 
-### **2. QR Generator App Demo (5 minutes)**
+### **2. VeriGate Pass App Demo (5 minutes)**
 
 **Show the login screen:**
 
 - "Event attendees use simple email login - no complex passwords needed"
-- **Demo users**: Use `john.athlete@sports.com` (General access) and `sarah.vip@company.com` (VIP access)
+- **Demo users**: Use `john.attendee@verigate.com` (General access) and `sarah.vip@verigate.com` (VIP access)
 
 **Show the QR display:**
 
@@ -100,12 +100,12 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 - "The code refreshes automatically for security"
 - **Highlight access levels**: Show how VIP users see more areas than General users
 
-### **3. Scanner App Demo (8 minutes)**
+### **3. VeriGate Scan App Demo (8 minutes)**
 
 **Login as scanner:**
 
-- Use `scanner1@event.com` for volunteer scanner
-- Use `security@event.com` for security scanner role
+- Use `scanner1@verigate.com` for volunteer scanner
+- Use `security@verigate.com` for security scanner role
 
 **Show scanning interface:**
 
@@ -124,7 +124,7 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 **Offline Operation:**
 
 - "Turn off WiFi on both phones - the system continues working"
-- "Perfect for stadiums where network connectivity is unreliable"
+- "Perfect for venues where network connectivity is unreliable"
 
 **Security Features:**
 
@@ -155,28 +155,28 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 
 ## 📊 Demo Data
 
-### **Sample Users (QR Generator App)**
+### **Sample Users (VeriGate Pass App)**
 
 ```
-john.athlete@sports.com     - General (Main Arena, General Entrance, Food Court)
-sarah.vip@company.com       - VIP (Main Arena, VIP Lounge, General Entrance, Food Court)
-mike.staff@event.com        - Staff (Main Arena, Staff Area, General Entrance, Food Court)
-emma.security@event.com     - Security (Main Arena, Security Zone, Staff Area, General Entrance)
-david.manager@event.com     - Management (All areas access)
-lisa.coach@sports.com       - Staff (Main Arena, Staff Area, General Entrance)
-alex.media@news.com         - General (Main Arena, General Entrance)
-sophie.sponsor@corp.com     - VIP (Main Arena, VIP Lounge, General Entrance, Food Court)
-james.volunteer@event.com   - Staff (General Entrance, Food Court only)
-maria.official@sports.org   - Management (All areas access)
+john.attendee@verigate.com     - General (Main Arena, General Entrance, Food Court)
+sarah.vip@verigate.com       - VIP (Main Arena, VIP Lounge, General Entrance, Food Court)
+mike.staff@verigate.com        - Staff (Main Arena, Staff Area, General Entrance, Food Court)
+emma.security@verigate.com     - Security (Main Arena, Security Zone, Staff Area, General Entrance)
+david.manager@verigate.com     - Management (All areas access)
+lisa.coach@verigate.com       - Staff (Main Arena, Staff Area, General Entrance)
+alex.media@verigate.com         - General (Main Arena, General Entrance)
+sophie.sponsor@verigate.com     - VIP (Main Arena, VIP Lounge, General Entrance, Food Court)
+james.volunteer@verigate.com   - Staff (General Entrance, Food Court only)
+maria.official@verigate.org   - Management (All areas access)
 ```
 
-### **Scanner Users (Scanner App)**
+### **Scanner Users (VeriGate Scan App)**
 
 ```
-scanner1@event.com - Volunteer
-scanner2@event.com - Volunteer  
-security@event.com - Security
-admin@event.com    - Admin
+scanner1@verigate.com - Volunteer
+scanner2@verigate.com - Volunteer  
+security@verigate.com - Security
+admin@verigate.com    - Admin
 ```
 
 ### **Areas for Testing**
@@ -194,20 +194,20 @@ Food Court        - No restrictions
 
 ### **Scenario 1: VIP Guest Access**
 
-1. Login as `sarah.vip@company.com` in QR Generator
-2. Login as `scanner1@event.com` in Scanner
+1. Login as `sarah.vip@verigate.com` in VeriGate Pass
+2. Login as `scanner1@verigate.com` in VeriGate Scan
 3. Select "VIP Lounge" in Scanner
 4. Scan Sarah's QR → **ACCESS GRANTED** ✅
 
 ### **Scenario 2: Access Denied**
 
-1. Login as `john.athlete@sports.com` (General level)
+1. Login as `john.attendee@verigate.com` (General level)
 2. Try to scan for "VIP Lounge" access
 3. Result: **ACCESS DENIED** ❌ - "No access to VIP Lounge"
 
 ### **Scenario 3: Multi-Area Access**
 
-1. Login as `david.manager@event.com` (Management)
+1. Login as `david.manager@verigate.com` (Management)
 2. Show how Management level can access all areas
 3. Test different areas: Main Arena ✅, Security Zone ✅, VIP Lounge ✅
 

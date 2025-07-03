@@ -176,7 +176,6 @@ yarn.lock
 **/package-lock.json
 **/yarn.lock
 
-# Keep only the root pnpm-lock.yaml
 pnpm-lock.yaml
 !/pnpm-lock.yaml
 

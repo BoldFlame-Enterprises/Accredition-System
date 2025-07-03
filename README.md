@@ -1,12 +1,12 @@
-# QR Code-based Accreditation System for Sports Events
+# VeriGate Access Control
 
-A comprehensive, secure, and offline-capable accreditation system designed for sports events using QR codes for access control. The system features a simplified architecture optimized for reliability, performance, and ease of deployment.
+A comprehensive, secure, and offline-capable accreditation system designed for events using QR codes for access control. The system features a simplified architecture optimized for reliability, performance, and ease of deployment.
 
 ## 🎯 Project Overview
 
 ### **Problem Statement**
 
-Traditional accreditation systems for sports events often rely on physical badges or complex online verification systems that fail during network outages. This creates bottlenecks at entry points and security vulnerabilities.
+Traditional accreditation systems for events often rely on physical badges or complex online verification systems that fail during network outages. This creates bottlenecks at entry points and security vulnerabilities.
 
 ### **Solution**
 
@@ -50,10 +50,10 @@ Unlike traditional online verification systems, our approach stores encrypted us
   - Comprehensive reporting and analytics
   - Bulk user import/export functionality
 
-#### 3. **QR Generator Mobile App** (`/SportGatePass`)
+#### 3. **VeriGate Pass App** (`/verigate-pass`)
 
 - **Technology**: React Native CLI + TypeScript + Native Modules
-- **Target Users**: Event attendees (athletes, VIPs, staff, spectators)
+- **Target Users**: Event attendees (VIPs, staff, spectators)
 - **Key Features**:
   - **Anti-screenshot QR display** using native screen capture protection
   - **Device-bound QR codes** that cannot be shared or copied
@@ -63,7 +63,7 @@ Unlike traditional online verification systems, our approach stores encrypted us
   - **Event information** and updates
   - **Fast local builds** (2-5 minutes vs 400+ minutes with Expo)
 
-#### 4. **Scanner Mobile App** (`/SportGateScan`)
+#### 4. **VeriGate Scan App** (`/verigate-scan`)
 
 - **Technology**: React Native CLI + Native Camera + SQLite
 - **Target Users**: Volunteers, security personnel, event staff
@@ -258,7 +258,7 @@ scan_logs (
 
 ## 📱 Mobile Application Features
 
-### **QR Generator App**
+### **VeriGate Pass App**
 
 #### **User Experience**
 
@@ -276,7 +276,7 @@ scan_logs (
 - **Auto-Logout**: Security timeout after inactivity
 - **Secure Storage**: All credentials stored in device keychain
 
-### **Scanner App**
+### **VeriGate Scan App**
 
 #### **Scanning Interface**
 
@@ -320,10 +320,10 @@ scan_logs (
 ```bash
 # Clone and setup
 git clone <repository-url>
-cd accreditation-system
+cd verigate-access-control
 
 # Install all dependencies
-pnpm install:all
+pnpm install
 
 # Setup backend environment
 cd backend
@@ -339,8 +339,8 @@ cd ..
 pnpm run dev  # Starts backend + web dashboard
 
 # Mobile apps (separate terminals)
-cd qr-generator-app && pnpm start
-cd scanner-app && pnpm start
+cd verigate-pass && pnpm start
+cd verigate-scan && pnpm start
 ```
 
 ### **Production Deployment**
@@ -379,13 +379,13 @@ cd scanner-app && pnpm start
 
 ### **Mobile App Distribution**
 
-#### **QR Generator App Distribution**
+#### **VeriGate Pass App Distribution**
 
 - **Internal Distribution**: Enterprise app distribution
 - **App Store**: Public release for user download
 - **APK/IPA**: Direct installation for testing
 
-#### **Scanner App Distribution**
+#### **VeriGate Scan App Distribution**
 
 - **Restricted Distribution**: Only for authorized personnel
 - **Device Management**: MDM integration for enterprise deployment
@@ -396,7 +396,7 @@ cd scanner-app && pnpm start
 ### **Project Structure**
 
 ```file structure
-accreditation-system/
+verigate-access-control/
 ├── backend/                 # Node.js/TypeScript API Server
 │   ├── server/
 │   │   ├── routes/         # API endpoints (auth, sync, qr, etc.)
@@ -413,14 +413,14 @@ accreditation-system/
 │   ├── package.json       # Web dependencies
 │   └── README.md          # Web-specific documentation
 │
-├── SportGatePass/         # React Native CLI QR Generator App
+├── verigate-pass/         # React Native CLI QR Generator App
 │   ├── src/               # React Native source
 │   ├── android/           # Android native code
 │   ├── ios/               # iOS native code
 │   ├── package.json       # Mobile dependencies
 │   └── README.md          # QR Generator documentation
 │
-├── SportGateScan/         # React Native CLI Scanner App
+├── verigate-scan/         # React Native CLI Scanner App
 │   ├── src/               # React Native source
 │   ├── android/           # Android native code
 │   ├── ios/               # iOS native code
@@ -439,7 +439,7 @@ accreditation-system/
 #### **Root Level (All Components)**
 
 ```bash
-pnpm install:all        # Install dependencies for all components
+pnpm install            # Install dependencies for all components
 pnpm dev                # Start backend + web dashboard
 pnpm build              # Build all components for production
 pnpm test               # Run tests across all components
@@ -473,7 +473,7 @@ pnpm run preview        # Preview production build
 
 ```bash
 # Development
-cd SportGatePass        # or SportGateScan
+cd verigate-pass        # or verigate-scan
 pnpm start              # Start Metro bundler
 pnpm run android        # Run on Android device/emulator
 pnpm run ios            # Run on iOS device/simulator
@@ -483,8 +483,8 @@ pnpm run ios            # Run on iOS device/simulator
 # Options: 1=Pass, 2=Scan, 3=Both apps
 
 # Manual builds
-cd SportGatePass/android && ./gradlew assembleRelease  # Android APK
-cd SportGatePass && npx react-native run-ios --scheme=Release  # iOS
+cd verigate-pass/android && ./gradlew assembleRelease  # Android APK
+cd verigate-pass && npx react-native run-ios --scheme=Release  # iOS
 ```
 
 ## 📚 API Documentation
@@ -558,11 +558,11 @@ POST /api/users
 
 After running `pnpm run seed:db`, these test accounts are available:
 
-- **Admin**: `admin@test.com / password123` (Full system access)
-- **Scanner**: `scanner@test.com / password123` (Scanner app access)
-- **VIP User**: `vip@test.com / password123` (VIP areas access)
-- **Staff**: `staff@test.com / password123` (Staff areas access)
-- **General**: `general@test.com / password123` (Basic access)
+- **Admin**: `admin@verigate.com / password123` (Full system access)
+- **Scanner**: `scanner@verigate.com / password123` (Scanner app access)
+- **VIP User**: `vip@verigate.com / password123` (VIP areas access)
+- **Staff**: `staff@verigate.com / password123` (Staff areas access)
+- **General**: `general@verigate.com / password123` (Basic access)
 
 ### **Testing Scenarios**
 
@@ -595,7 +595,7 @@ After running `pnpm run seed:db`, these test accounts are available:
 # Database
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=accreditation_system
+DB_NAME=verigate_access_control
 DB_USER=postgres
 DB_PASSWORD=your_secure_password
 
