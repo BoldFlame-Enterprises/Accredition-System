@@ -1,21 +1,18 @@
 # Quick Start Guide - VeriGate Access Control
 
-## ✅ Apps Are Ready
-
-Both Android apps have been successfully created and are ready for testing.
-
 ## 🚀 How to Test on Your Phone (Easiest Method)
 
 ### Step 1: Install Expo Go
 
-- Download **Expo Go** from Google Play Store on your Android phone
-- It's the official Expo development app for testing React Native apps
+- Download **Expo Go** from Google Play Store / App Store on your phone
+- This works for everything except the encrypted local database (see each app's README for the dev-client build needed for that)
 
 ### Step 2: Start the VeriGate Pass App
 
 ```bash
 cd verigate-pass
-pnpm start
+npm install
+npm start
 ```
 
 - A QR code will appear in the terminal
@@ -26,7 +23,8 @@ pnpm start
 
 ```bash
 cd verigate-scan
-pnpm start
+npm install
+npm start
 ```
 
 - Another QR code will appear
@@ -34,85 +32,79 @@ pnpm start
 
 ## 📱 Testing the Complete System
 
-### Test Scenario 1: VIP Access
+Both apps work fully offline against seeded local demo data with no password. To test against the real backend instead (real event scoping, sync, dashboard visibility), enter `password123` for any of the seeded backend accounts below - see the root README's "End-to-end demo" section for the full backend setup.
 
-1. **VeriGate Pass App**:
-   - Login with: `sarah.vip@verigate.com`
-   - You'll see a QR code with VIP access level
+### Test Scenario 1: VIP Access (local demo data, no backend needed)
 
-2. **VeriGate Scan App**:
-   - Login with: `scanner1@verigate.com`
-   - Select area: "VIP Lounge"
-   - Point camera at the QR code from the Generator app
-   - Result: **ACCESS GRANTED** ✅
+1. **VeriGate Pass App**: Login with `sarah.vip@company.com` (leave password blank) - you'll see a QR code with VIP access level
+2. **VeriGate Scan App**: Login with `scanner1@event.com` (leave password blank), pick area "VIP Lounge", point the camera at the QR code from the Pass app → **ACCESS GRANTED** ✅
 
 ### Test Scenario 2: Access Denied
 
-1. **VeriGate Pass App**:
-   - Login with: `john.attendee@verigate.com` (General level)
+1. **VeriGate Pass App**: Login with `john.athlete@sports.com` (General level)
+2. **VeriGate Scan App**: Select area "VIP Lounge", scan the General user's QR code → **ACCESS DENIED** ❌
 
-2. **VeriGate Scan App**:
-   - Select area: "VIP Lounge"
-   - Scan the General user's QR code
-   - Result: **ACCESS DENIED** ❌
-
-## 🎯 Demo Users
+## 🎯 Local Demo Users (built into each app, no backend required)
 
 ### VeriGate Pass App (Event Attendees)
 
 ```
-john.attendee@verigate.com     - General Level
-sarah.vip@verigate.com       - VIP Level
-mike.staff@verigate.com        - Staff Level
-emma.security@verigate.com     - Security Level
-david.manager@verigate.com     - Management Level (All areas)
+john.athlete@sports.com     - General Level
+sarah.vip@company.com       - VIP Level
+mike.staff@event.com        - Staff Level
+emma.security@event.com     - Security Level
+david.manager@event.com     - Management Level (All areas)
 ```
 
 ### VeriGate Scan App (Volunteers)
 
 ```
-scanner1@verigate.com - Volunteer
-scanner2@verigate.com - Volunteer
-security@verigate.com - Security
-admin@verigate.com    - Admin
+scanner1@event.com - Volunteer
+scanner2@event.com - Volunteer
+security@event.com - Security
+admin@event.com     - Admin
+```
+
+## 🎯 Backend Demo Users (for real event sync - see root README)
+
+```
+admin@test.com / password123    - Admin
+scanner@test.com / password123  - Scanner
+vip@test.com / password123      - VIP
+staff@test.com / password123    - Staff
+general@test.com / password123  - General
 ```
 
 ## 🔧 Troubleshooting
 
-### If you see Metro bundler errors
+### If you see Metro bundler warnings
 
-- The errors about missing modules are just warnings
 - The apps will still work perfectly in Expo Go
 - You'll see a QR code in the terminal - that means it's working
 
 ### If QR code doesn't appear
 
 - Make sure you're in the correct directory (`verigate-pass` or `verigate-scan`)
-- Check that pnpm is installed: `pnpm --version`
-- Try `npm start` instead of `pnpm start`
+- Make sure `npm install` completed successfully first
 
 ### If apps don't connect
 
 - Make sure your phone and computer are on the same WiFi network
 - Check that Expo Go is updated to the latest version
+- If testing against the real backend, make sure `EXPO_PUBLIC_API_URL` (or `expo.extra.apiBaseUrl` in `app.json`) points at a reachable IP, not `localhost` (your phone can't reach your computer's `localhost`)
 
 ## 🎪 For the Events Committee Demo
 
 1. **Show both apps running on your phone**
 2. **Demonstrate the login process** for both attendees and volunteers
-3. **Show live QR scanning** with immediate feedback
+3. **Show live QR scanning** with immediate visual + audio feedback
 4. **Test different access levels** (VIP vs General)
 5. **Highlight offline operation** (turn off WiFi and show it still works)
+6. **Show the admin dashboard** reflecting a scan a few seconds after syncing, if demoing against the real backend
 
 ## 🚀 Next Steps for Production
 
-When ready for production APKs:
-
-1. Create Expo account: https://expo.dev/signup
-2. Run: `expo login`
-3. Run: `./build-apps.sh`
-4. Download APKs from Expo dashboard
-
----
-
-**Both apps are fully functional and ready for demonstration! The system showcases offline-first QR verification with 10 sample users and 6 different access areas.**
+1. Create an Expo account: https://expo.dev/signup
+2. Run `eas login`
+3. `npx expo prebuild && eas build --profile production --platform android` (or `ios`) in each app directory
+4. Download builds from the Expo dashboard

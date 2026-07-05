@@ -45,40 +45,33 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 
    ```bash
    cd verigate-pass
-   pnpm start
+   npm install
+   npm start
    ```
 
 3. **Start VeriGate Scan App** (in another terminal):
 
    ```bash
    cd verigate-scan
-   pnpm start
+   npm install
+   npm start
    ```
 
 4. **Scan QR codes** from Expo Go to install both apps on your phone
 
 ### **Option 2: APK Build (For Distribution)**
 
-1. **Sign up for Expo Account**: https://expo.dev/
-2. **Install Expo CLI**:
+1. **Sign up for an Expo account**: https://expo.dev/
+2. **Install the EAS CLI**: `npm install -g eas-cli`
+3. **Login**: `eas login`
+4. **Build** (from inside `verigate-pass/` or `verigate-scan/`):
 
    ```bash
-   npm install -g @expo/cli
+   npx expo prebuild
+   eas build --profile production --platform android
    ```
 
-3. **Login to Expo**:
-
-   ```bash
-   expo login
-   ```
-
-4. **Build APKs**:
-
-   ```bash
-   ./build-apps.sh
-   ```
-
-5. **Download APKs** from your Expo dashboard once builds complete
+5. **Download the APK** from your Expo dashboard once the build completes
 
 ## 🎪 Demo Script for Events Committee
 
@@ -91,7 +84,7 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 **Show the login screen:**
 
 - "Event attendees use simple email login - no complex passwords needed"
-- **Demo users**: Use `john.attendee@verigate.com` (General access) and `sarah.vip@verigate.com` (VIP access)
+- **Demo users**: Use `john.athlete@sports.com` (General access) and `sarah.vip@company.com` (VIP access)
 
 **Show the QR display:**
 
@@ -104,8 +97,8 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 
 **Login as scanner:**
 
-- Use `scanner1@verigate.com` for volunteer scanner
-- Use `security@verigate.com` for security scanner role
+- Use `scanner1@event.com` for volunteer scanner
+- Use `security@event.com` for security scanner role
 
 **Show scanning interface:**
 
@@ -158,25 +151,25 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 ### **Sample Users (VeriGate Pass App)**
 
 ```
-john.attendee@verigate.com     - General (Main Arena, General Entrance, Food Court)
-sarah.vip@verigate.com       - VIP (Main Arena, VIP Lounge, General Entrance, Food Court)
-mike.staff@verigate.com        - Staff (Main Arena, Staff Area, General Entrance, Food Court)
-emma.security@verigate.com     - Security (Main Arena, Security Zone, Staff Area, General Entrance)
-david.manager@verigate.com     - Management (All areas access)
-lisa.coach@verigate.com       - Staff (Main Arena, Staff Area, General Entrance)
-alex.media@verigate.com         - General (Main Arena, General Entrance)
-sophie.sponsor@verigate.com     - VIP (Main Arena, VIP Lounge, General Entrance, Food Court)
-james.volunteer@verigate.com   - Staff (General Entrance, Food Court only)
-maria.official@verigate.org   - Management (All areas access)
+john.athlete@sports.com     - General (Main Arena, General Entrance, Food Court)
+sarah.vip@company.com       - VIP (Main Arena, VIP Lounge, General Entrance, Food Court)
+mike.staff@event.com        - Staff (Main Arena, Staff Area, General Entrance, Food Court)
+emma.security@event.com     - Security (Main Arena, Security Zone, Staff Area, General Entrance)
+david.manager@event.com     - Management (All areas access)
+lisa.coach@sports.com       - Staff (Main Arena, Staff Area, General Entrance)
+alex.media@news.com         - General (Main Arena, General Entrance)
+sophie.sponsor@corp.com     - VIP (Main Arena, VIP Lounge, General Entrance, Food Court)
+james.volunteer@event.com   - Staff (General Entrance, Food Court only)
+maria.official@sports.org   - Management (All areas access)
 ```
 
 ### **Scanner Users (VeriGate Scan App)**
 
 ```
-scanner1@verigate.com - Volunteer
-scanner2@verigate.com - Volunteer  
-security@verigate.com - Security
-admin@verigate.com    - Admin
+scanner1@event.com - Volunteer
+scanner2@event.com - Volunteer  
+security@event.com - Security
+admin@event.com    - Admin
 ```
 
 ### **Areas for Testing**
@@ -194,20 +187,20 @@ Food Court        - No restrictions
 
 ### **Scenario 1: VIP Guest Access**
 
-1. Login as `sarah.vip@verigate.com` in VeriGate Pass
-2. Login as `scanner1@verigate.com` in VeriGate Scan
+1. Login as `sarah.vip@company.com` in VeriGate Pass
+2. Login as `scanner1@event.com` in VeriGate Scan
 3. Select "VIP Lounge" in Scanner
 4. Scan Sarah's QR → **ACCESS GRANTED** ✅
 
 ### **Scenario 2: Access Denied**
 
-1. Login as `john.attendee@verigate.com` (General level)
+1. Login as `john.athlete@sports.com` (General level)
 2. Try to scan for "VIP Lounge" access
 3. Result: **ACCESS DENIED** ❌ - "No access to VIP Lounge"
 
 ### **Scenario 3: Multi-Area Access**
 
-1. Login as `david.manager@verigate.com` (Management)
+1. Login as `david.manager@event.com` (Management)
 2. Show how Management level can access all areas
 3. Test different areas: Main Arena ✅, Security Zone ✅, VIP Lounge ✅
 

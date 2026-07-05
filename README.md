@@ -52,30 +52,29 @@ Unlike traditional online verification systems, our approach stores encrypted us
 
 #### 3. **VeriGate Pass App** (`/verigate-pass`)
 
-- **Technology**: React Native CLI + TypeScript + Native Modules
+- **Technology**: **Expo (SDK 53)** + TypeScript + Expo Router — not a bare React Native CLI project. Native capability (screen-capture protection, biometrics, encrypted SQLite) comes from the Expo module ecosystem (`expo-screen-capture`, `expo-local-authentication`, `@op-engineering/op-sqlite`) rather than hand-written native modules.
 - **Target Users**: Event attendees (VIPs, staff, spectators)
 - **Key Features**:
-  - **Anti-screenshot QR display** using native screen capture protection
+  - **Anti-screenshot QR display** via `expo-screen-capture`
   - **Device-bound QR codes** that cannot be shared or copied
   - **Offline QR generation** with periodic access permission updates
-  - **Simple authentication** with secure credential storage
+  - **Biometric login** (`expo-local-authentication`) with secure credential storage
+  - **Backgrounding blur + auto-logout** after inactivity
   - **Access status indicator** showing permitted areas
-  - **Event information** and updates
-  - **Fast local builds** (2-5 minutes vs 400+ minutes with Expo)
+  - **Live event sync + local/push notifications**
 
 #### 4. **VeriGate Scan App** (`/verigate-scan`)
 
-- **Technology**: React Native CLI + Native Camera + SQLite
+- **Technology**: **Expo (SDK 53)** + TypeScript + `expo-camera` — not a bare React Native CLI project or a separate "Vision Camera" native module.
 - **Target Users**: Volunteers, security personnel, event staff
 - **Key Features**:
-  - **Offline QR verification** using encrypted local SQLite database
-  - **Real-time camera scanning** with instant feedback via Vision Camera
+  - **Offline QR verification** using an encrypted (SQLCipher, via `@op-engineering/op-sqlite`) local SQLite database
+  - **Real-time camera scanning** with instant feedback via `expo-camera`
   - **Role-based access** (volunteer, security, admin privileges)
-  - **Visual/audio feedback** (green/red indicators with sounds)
-  - **Local scan logging** with automatic sync when online
-  - **Emergency override** capabilities for authorized personnel
+  - **Visual/audio feedback** (green/red indicators with distinct tones via `expo-av`), dark theme for low-light use
+  - **Area selection, manual entry fallback, emergency override, and incident reporting**
+  - **Local scan logging** with automatic sync (retry + backoff) when online
   - **Multi-area support** for volunteers working different zones
-  - **Native performance** with direct hardware access
 
 ## 🔐 Security Architecture
 
@@ -115,7 +114,9 @@ Unlike traditional online verification systems, our approach stores encrypted us
 
 ## 📊 Database Schema
 
-### **Core Tables**
+Multi-event tenancy is first-class: `events` and `event_members` sit above everything else, and `access_levels`, `areas`, `access_assignments`, and `scan_logs` are all scoped by `event_id` (full DDL in `backend/server/scripts/setup-database.ts`). Membership is **multi-event** — a user can belong to more than one event over time via `event_members`, separate from the per-area `access_assignments` below. Existing pre-events databases upgrade in place via `npm run migrate:events`, which preserves all data under an auto-created "Default Event".
+
+### **Core Tables** (event-scoped tables shown without their `event_id INTEGER NOT NULL REFERENCES events(id)` column for brevity)
 
 #### **Users Table**
 
@@ -309,39 +310,43 @@ scan_logs (
 
 - **Node.js** 18+ (Backend and build tools)
 - **PostgreSQL** 13+ (Primary database)
-- **Redis** 6+ (Optional, for caching and sessions)
-- **pnpm** 8+ (Package manager for workspaces)
-- **React Native CLI** (Mobile app development)
+- **Redis** 6+ (Optional, for caching and sessions — the backend runs fine without it, fail-open)
+- **Expo CLI / EAS CLI** (Mobile app development)
 - **Android Studio** (Android development and testing)
 - **Xcode** (iOS development, macOS only)
+
+Each of the four apps (`backend`, `web-dashboard`, `verigate-pass`, `verigate-scan`) is an **independent git submodule with its own `npm install`** — they are not a unified npm/pnpm workspace, because the web dashboard needs React 18 and the Expo apps need React 19; hoisting them into one workspace causes duplicate-React-type conflicts. Install each one separately, as below.
 
 #### **Quick Start**
 
 ```bash
-# Clone and setup
-git clone <repository-url>
+# Clone (with submodules) and setup
+git clone --recurse-submodules <repository-url>
 cd verigate-access-control
 
-# Install all dependencies
-pnpm install
-
-# Setup backend environment
+# Backend
 cd backend
+npm install
 cp .env.example .env
 # Edit .env with your database credentials
+npm run setup:db
+npm run seed:db
+npm run dev
 
-# Initialize database
-pnpm run setup:db
-pnpm run seed:db
+# Web dashboard (separate terminal)
+cd web-dashboard
+npm install
+cp .env.example .env
+npm run dev
 
-# Start development
-cd ..
-pnpm run dev  # Starts backend + web dashboard
-
-# Mobile apps (separate terminals)
-cd verigate-pass && pnpm start
-cd verigate-scan && pnpm start
+# Mobile apps (separate terminals) - Expo Go works for everything except
+# local DB encryption; use `npx expo prebuild && npx expo run:android` (or
+# `run:ios`) for the full feature set including SQLCipher.
+cd verigate-pass && npm install && npm start
+cd verigate-scan && npm install && npm start
 ```
+
+Or from the repo root, the convenience scripts in `package.json` wrap the same per-app commands: `npm run setup:db`, `npm run seed:db`, `npm run dev` (backend + dashboard), `npm run dev:backend`, `npm run dev:web`, `npm run start:pass`, `npm run start:scan`.
 
 ### **Production Deployment**
 
@@ -413,78 +418,80 @@ verigate-access-control/
 │   ├── package.json       # Web dependencies
 │   └── README.md          # Web-specific documentation
 │
-├── verigate-pass/         # React Native CLI QR Generator App
-│   ├── src/               # React Native source
-│   ├── android/           # Android native code
-│   ├── ios/               # iOS native code
+├── verigate-pass/         # Expo (SDK 53) attendee app
+│   ├── app/                # Expo Router routes
+│   ├── src/                 # Services (DB, sync, auth, notifications), context
 │   ├── package.json       # Mobile dependencies
-│   └── README.md          # QR Generator documentation
+│   └── README.md          # Pass app documentation
 │
-├── verigate-scan/         # React Native CLI Scanner App
-│   ├── src/               # React Native source
-│   ├── android/           # Android native code
-│   ├── ios/               # iOS native code
+├── verigate-scan/         # Expo (SDK 53) scanner app
+│   ├── app/                # Expo Router routes
+│   ├── src/                 # Services (DB, sync, audio feedback), context
 │   ├── package.json       # Scanner dependencies
 │   └── README.md          # Scanner documentation
 │
-├── build-react-native.sh  # Fast local build script for mobile apps
-├── package.json           # Root workspace configuration
+├── package.json           # Root convenience scripts (each app installs independently)
 ├── docker-compose.yml     # Complete deployment setup
 ├── .gitignore            # Comprehensive ignore rules
 └── README.md             # This documentation
 ```
 
+Native `android/`/`ios/` folders for the two Expo apps don't exist in git — they're generated on demand by `npx expo prebuild` and are gitignored, matching normal Expo project layout.
+
 ### **Development Commands**
 
-#### **Root Level (All Components)**
+#### **Root Level (convenience wrappers, no shared workspace)**
 
 ```bash
-pnpm install            # Install dependencies for all components
-pnpm dev                # Start backend + web dashboard
-pnpm build              # Build all components for production
-pnpm test               # Run tests across all components
-pnpm lint               # Lint all components
-pnpm type-check         # TypeScript validation
-pnpm clean              # Clean all build artifacts and dependencies
+npm run setup:db        # backend: create database tables and indexes
+npm run seed:db         # backend: populate with demo event + test data
+npm run dev             # backend + web dashboard, concurrently
+npm run dev:backend     # backend only
+npm run dev:web         # web dashboard only
+npm run start:pass      # verigate-pass (Expo dev server)
+npm run start:scan      # verigate-scan (Expo dev server)
+npm run type-check      # backend + web dashboard type-check
 ```
 
 #### **Backend Specific**
 
 ```bash
 cd backend
-pnpm run dev            # Start with hot reload (ts-node-dev)
-pnpm run build          # Compile TypeScript to JavaScript
-pnpm run start          # Run compiled JavaScript
-pnpm run setup:db       # Create database tables and indexes
-pnpm run seed:db        # Populate with test data
-pnpm run type-check     # TypeScript type validation
+npm run dev             # Start with hot reload (ts-node-dev)
+npm run build           # Compile TypeScript to JavaScript
+npm start               # Run compiled JavaScript
+npm run setup:db        # Create database tables and indexes (fresh install)
+npm run migrate:events  # Upgrade an existing pre-events database in place
+npm run seed:db         # Populate with demo event + test data
+npm run type-check      # TypeScript type validation
+npm test                # Jest test suite
 ```
 
 #### **Web Dashboard Specific**
 
 ```bash
 cd web-dashboard
-pnpm run dev            # Start Vite development server
-pnpm run build          # Build for production
-pnpm run preview        # Preview production build
+npm run dev             # Start Vite development server
+npm run build           # Type-check + build for production
+npm run preview         # Preview production build
 ```
 
-#### **Mobile Apps (React Native CLI)**
+#### **Mobile Apps (Expo)**
 
 ```bash
-# Development
+# Development (Expo Go works for everything except local DB encryption)
 cd verigate-pass        # or verigate-scan
-pnpm start              # Start Metro bundler
-pnpm run android        # Run on Android device/emulator
-pnpm run ios            # Run on iOS device/simulator
+npm start               # Start the Expo dev server
+npm run android         # Run on Android device/emulator
+npm run ios             # Run on iOS device/simulator
 
-# Fast local builds (recommended)
-./build-react-native.sh # Interactive build script
-# Options: 1=Pass, 2=Scan, 3=Both apps
+# Full feature set including SQLCipher-encrypted local DB requires a custom
+# dev client / prebuild (op-sqlite is a native module, incompatible with Expo Go):
+npx expo prebuild
+npx expo run:android    # or: npx expo run:ios
 
-# Manual builds
-cd verigate-pass/android && ./gradlew assembleRelease  # Android APK
-cd verigate-pass && npx react-native run-ios --scheme=Release  # iOS
+# EAS cloud builds
+npm run build:android   # or: npm run build:ios
 ```
 
 ## 📚 API Documentation
@@ -505,64 +512,97 @@ POST /api/auth/refresh
   Response: { accessToken, refreshToken }
 ```
 
+### **Event Endpoints**
+
+```apis
+GET /api/events
+  Response: events[] the caller is a member of (all events, if admin)
+
+POST /api/events            (admin)
+  Body: { name, slug, description?, starts_at?, ends_at? }
+
+GET /api/events/:id/members  (admin)
+POST /api/events/:id/members (admin)   Body: { user_id, role_in_event? }
+```
+
 ### **QR Code Endpoints**
 
 ```apis
-GET /api/qr/generate
+GET /api/qr/generate?event_id=<id>
   Headers: { Authorization: "Bearer <token>" }
   Response: { qr_content, user_info, expires_at }
 
-POST /api/qr/verify
-  Body: { qr_content, area_id }
-  Response: { access_granted, user_name, message }
+POST /api/qr/verify        (deprecated alias for /api/scan/verify - same real verification)
+  Body: { qr_content, area_id, event_id }
+  Response: { access_granted, user, area, reason? }
+```
+
+### **Scan Endpoints**
+
+```apis
+POST /api/scan/verify       # the one real, server-side verification fallback path
+  Body: { qr_code, area_id, event_id, device_info? }
+  Response: { access_granted, user?, area?, reason? }
 ```
 
 ### **Synchronization Endpoints**
 
 ```apis
-GET /api/sync/users-database
-  Headers: { Authorization: "Bearer <token>" }
-  Response: { users[], metadata: { checksum, timestamp, version } }
+GET /api/sync/users-database?event_id=<id>
+  Response: { users[], metadata: { checksum, timestamp, version, event_id } }
 
-GET /api/sync/areas-database
-  Headers: { Authorization: "Bearer <token>" }
-  Response: { areas[], metadata: { checksum, timestamp } }
+GET /api/sync/areas-database?event_id=<id>
+  Response: { areas[], metadata: { checksum, timestamp, event_id } }
 
 POST /api/sync/scan-logs
-  Body: { logs[], device_id }
-  Response: { processed, errors, total }
+  Body: { logs[] /* each may include device_scan_id for de-dup */, device_id, event_id }
+  Response: { processed, duplicates, errors, total }
 
-GET /api/sync/check-updates
+GET /api/sync/check-updates?event_id=<id>
   Query: { users_version?, areas_version? }
   Response: { users_update_available, areas_update_available }
 ```
 
-### **Admin Endpoints**
+### **Admin, Analytics & Notification Endpoints**
 
 ```apis
-GET /api/admin/dashboard
-  Response: { stats, recent_scans, active_users }
+GET /api/admin/dashboard?event_id=<id>
+  Response: { members, areas, access_levels, scans, scans_by_area, recent_scans, device_activity }
+
+GET /api/analytics/scan-volume?event_id=<id>      # hourly buckets + peak hours
+GET /api/analytics/breakdown?event_id=<id>        # by area / access level / scanner + grant rate
+GET /api/analytics/export/scans.csv?event_id=<id>  # CSV export
+
+POST /api/notifications/register-device   Body: { event_id, token, platform }
+POST /api/notifications/send              (admin) Body: { event_id, title, body, user_ids? }
+POST /api/notifications/sync-heartbeat    Body: { device_id, app, event_id, platform? }
+GET  /api/notifications/device-status?event_id=<id>  (admin) # real-time sync monitor
+
+GET  /api/incidents?event_id=<id>          (admin)
+POST /api/incidents                        Body: { event_id, description, category?, area_id? }
+GET  /api/incidents/overrides?event_id=<id> (admin)
+POST /api/incidents/overrides              Body: { event_id, area_id, reason, access_granted?, user_id? }
 
 GET /api/users
-  Query: { page?, limit?, search? }
+  Query: { page?, limit?, search?, role?, is_active? }
   Response: { users[], pagination }
 
-POST /api/users
-  Body: { email, name, phone, access_level, areas[] }
-  Response: { user }
+POST /api/users                (admin)
+POST /api/users/bulk-import     (admin)  Body: { csv }
+GET  /api/users/export/csv      (admin)
 ```
 
 ## 🧪 Testing Strategy
 
 ### **Test Data**
 
-After running `pnpm run seed:db`, these test accounts are available:
+After running `npm run seed:db` in `backend/`, these test accounts are available (all scoped to the seeded "VeriGate Demo Championship" event):
 
-- **Admin**: `admin@verigate.com / password123` (Full system access)
-- **Scanner**: `scanner@verigate.com / password123` (Scanner app access)
-- **VIP User**: `vip@verigate.com / password123` (VIP areas access)
-- **Staff**: `staff@verigate.com / password123` (Staff areas access)
-- **General**: `general@verigate.com / password123` (Basic access)
+- **Admin**: `admin@test.com / password123` (Full system access)
+- **Scanner**: `scanner@test.com / password123` (Scanner app access, Staff level)
+- **VIP User**: `vip@test.com / password123` (VIP areas access)
+- **Staff**: `staff@test.com / password123` (Staff areas access)
+- **General**: `general@test.com / password123` (Basic access)
 
 ### **Testing Scenarios**
 
@@ -617,10 +657,25 @@ PEPPER_SECRET=additional_password_security_pepper
 # QR Configuration
 QR_CODE_EXPIRE_MINUTES=60
 QR_CODE_REFRESH_INTERVAL=30
+# Must match the hardcoded secret in both mobile apps' DatabaseService
+QR_HMAC_SECRET=event_secret_key_2024
 
 # Rate Limiting
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
+
+# Push notifications - Android FCM (free)
+FCM_PROJECT_ID=
+FCM_CLIENT_EMAIL=
+FCM_PRIVATE_KEY=
+
+# Push notifications - iOS APNs (gated, default off - needs a paid Apple Developer account)
+APNS_ENABLED=false
+APNS_KEY_PATH=
+APNS_KEY_ID=
+APNS_TEAM_ID=
+APNS_BUNDLE_ID=
+APNS_PRODUCTION=false
 ```
 
 ### **Production Security Checklist**
@@ -653,6 +708,47 @@ RATE_LIMIT_MAX_REQUESTS=100
 - **Partitioning**: Time-based partitioning for scan logs
 - **Read Replicas**: Separate read/write workloads
 - **Caching**: Redis for frequent database queries
+
+## 🎬 End-to-end demo (no mocks, against the real backend)
+
+```bash
+# 1. Postgres + Redis (docker-compose, or your own local instances)
+docker-compose up -d postgres redis
+
+# 2. Backend
+cd backend && npm install
+cp .env.example .env   # fill in DB_* at minimum
+npm run setup:db && npm run seed:db
+npm run dev             # http://localhost:3000
+
+# 3. Web dashboard (new terminal)
+cd web-dashboard && npm install
+npm run dev              # http://localhost:5173
+
+# 4. Pass app (new terminal) - Expo Go is fine for this walkthrough
+cd verigate-pass && npm install && npm start
+
+# 5. Scan app (new terminal)
+cd verigate-scan && npm install && npm start
+```
+
+Then:
+1. Open the dashboard, sign in as `admin@test.com` / `password123` (seeded above), confirm the "VeriGate Demo Championship" event is selected.
+2. Create a new user (or use the seeded `vip@test.com`) and assign them an access level + area under **Access & Assignments**.
+3. In the pass app, log in as that user with their email + `password123` (fill in the password field so it authenticates against the real backend and syncs) — the QR screen shows their real, event-scoped access level and areas.
+4. In the scan app, log in as `scanner@test.com` / `password123`, select the same area, and scan the pass app's QR — you'll get a real green "GRANTED" result plus audio feedback, logged locally.
+5. Tap **Sync with event** in the scan app to upload the scan log to the backend.
+6. Back in the dashboard, the **Overview**/**Analytics** pages reflect the new scan within ~15-60s (cache TTL), and **Sync Monitor** shows the scanner device as online.
+7. In **Access & Assignments**, change that user's access level or area — this pushes a real Android FCM notification to the pass app if a `google-services.json` was provided (see `verigate-pass/README.md`); otherwise it fails open silently and the pass app picks up the change on its next manual sync.
+
+For local SQLCipher encryption and the rest of the mobile feature set (biometric login, manual entry, overrides, incident reporting), build a dev client per the mobile apps' READMEs (`npx expo prebuild && npx expo run:android`) instead of using Expo Go.
+
+## 🧭 Future Work
+
+Everything in scope for this build is implemented, with one deliberate exception:
+
+- **iOS remote push (APNs)**: fully implemented on the backend (`server/services/push.ts`, raw HTTP/2 + JWT provider tokens, no third-party SDK) and gated behind `APNS_ENABLED=false` by default, since it requires a paid Apple Developer Program membership. Set the flag and the `APNS_*` env vars to turn it on — no app-side code changes are needed, and it never breaks the Android path or builds while off.
+- **Remote push to the scanner app** was intentionally left as local-only (sync-stale warnings) per the spec's explicit examples — wiring up remote push there would reuse the same `device_tokens`/`push.ts` path already built for the pass app.
 
 ## 🤝 Contributing
 
