@@ -46,6 +46,8 @@ services:
       - JWT_REFRESH_SECRET=your_super_secret_refresh_key_change_this_in_production
       - ENCRYPTION_KEY=change_this_32_character_key_prod
       - PEPPER_SECRET=change_this_pepper_in_production
+      - QR_HMAC_SECRET=event_secret_key_2024
+      - APNS_ENABLED=false
     ports:
       - "3000:3000"
     depends_on:
@@ -63,7 +65,6 @@ services:
     container_name: accreditation-web
     ports:
       - "80:80"
-      - "443:443"
     depends_on:
       - backend
     networks:
