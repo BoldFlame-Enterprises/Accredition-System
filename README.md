@@ -308,14 +308,14 @@ scan_logs (
 
 #### **Prerequisites**
 
-- **Node.js** 18+ (Backend and build tools)
+- **Node.js** 22.14.0 and **npm** 10.9.2 (pinned by `.nvmrc` and every package manifest)
 - **PostgreSQL** 13+ (Primary database)
 - **Redis** 6+ (Optional, for caching and sessions — the backend runs fine without it, fail-open)
 - **Expo CLI / EAS CLI** (Mobile app development)
 - **Android Studio** (Android development and testing)
 - **Xcode** (iOS development, macOS only)
 
-Each of the four apps (`backend`, `web-dashboard`, `verigate-pass`, `verigate-scan`) is an **independent git submodule with its own `npm install`** — they are not a unified npm/pnpm workspace, because the web dashboard needs React 18 and the Expo apps need React 19; hoisting them into one workspace causes duplicate-React-type conflicts. Install each one separately, as below.
+Each of the four apps (`backend`, `web-dashboard`, `verigate-pass`, `verigate-scan`) is an **independent git submodule with its own tracked npm lockfile** — they are not a unified npm/pnpm workspace, because the web dashboard needs React 18 and the Expo apps need React 19; hoisting them into one workspace causes duplicate-React-type conflicts. Use `npm ci` for clean, reproducible installs.
 
 #### **Quick Start**
 
@@ -323,10 +323,11 @@ Each of the four apps (`backend`, `web-dashboard`, `verigate-pass`, `verigate-sc
 # Clone (with submodules) and setup
 git clone --recurse-submodules <repository-url>
 cd verigate-access-control
+nvm use
+npm run ci:all
 
 # Backend
 cd backend
-npm install
 cp .env.example .env
 # Edit .env with your database credentials
 npm run setup:db
@@ -335,18 +336,17 @@ npm run dev
 
 # Web dashboard (separate terminal)
 cd web-dashboard
-npm install
 cp .env.example .env
 npm run dev
 
 # Mobile apps (separate terminals) - Expo Go works for everything except
 # local DB encryption; use `npx expo prebuild && npx expo run:android` (or
 # `run:ios`) for the full feature set including SQLCipher.
-cd verigate-pass && npm install && npm start
-cd verigate-scan && npm install && npm start
+cd verigate-pass && npm start
+cd verigate-scan && npm start
 ```
 
-Or from the repo root, the convenience scripts in `package.json` wrap the same per-app commands: `npm run setup:db`, `npm run seed:db`, `npm run dev` (backend + dashboard), `npm run dev:backend`, `npm run dev:web`, `npm run start:pass`, `npm run start:scan`.
+The root package supplies `concurrently` and the convenience scripts. `npm run ci:all` installs the root and all four independent packages from their lockfiles. After that, the root wrappers include `npm run setup:db`, `npm run seed:db`, `npm run dev` (backend + dashboard), `npm run dev:backend`, `npm run dev:web`, `npm run start:pass`, and `npm run start:scan`.
 
 ### **Production Deployment**
 
@@ -443,6 +443,7 @@ Native `android/`/`ios/` folders for the two Expo apps don't exist in git — th
 #### **Root Level (convenience wrappers, no shared workspace)**
 
 ```bash
+npm run ci:all          # reproducible install for root and all four apps
 npm run setup:db        # backend: create database tables and indexes
 npm run seed:db         # backend: populate with demo event + test data
 npm run dev             # backend + web dashboard, concurrently
@@ -450,8 +451,16 @@ npm run dev:backend     # backend only
 npm run dev:web         # web dashboard only
 npm run start:pass      # verigate-pass (Expo dev server)
 npm run start:scan      # verigate-scan (Expo dev server)
-npm run type-check      # backend + web dashboard type-check
+npm run type-check      # all four apps
+npm run lint            # dashboard and both mobile apps
+npm test                # committed backend test suite
+npm run doctor          # Expo Doctor for both mobile apps
+npm run validate        # type-check, lint, tests, builds, and Expo Doctor
 ```
+
+The dashboard and mobile apps do not yet contain committed test files, so the
+aggregate test gate runs the existing backend suite only. Their non-watch test
+commands are available for focused use as coverage is added in later phases.
 
 #### **Backend Specific**
 
@@ -484,6 +493,9 @@ cd verigate-pass        # or verigate-scan
 npm start               # Start the Expo dev server
 npm run android         # Run on Android device/emulator
 npm run ios             # Run on iOS device/simulator
+npm run type-check      # TypeScript validation
+npm run lint            # Expo lint
+npm run doctor          # Expo project compatibility checks
 
 # Full feature set including SQLCipher-encrypted local DB requires a custom
 # dev client / prebuild (op-sqlite is a native module, incompatible with Expo Go):
@@ -716,20 +728,20 @@ APNS_PRODUCTION=false
 docker-compose up -d postgres redis
 
 # 2. Backend
-cd backend && npm install
+cd backend && npm ci
 cp .env.example .env   # fill in DB_* at minimum
 npm run setup:db && npm run seed:db
 npm run dev             # http://localhost:3000
 
 # 3. Web dashboard (new terminal)
-cd web-dashboard && npm install
+cd web-dashboard && npm ci
 npm run dev              # http://localhost:5173
 
 # 4. Pass app (new terminal) - Expo Go is fine for this walkthrough
-cd verigate-pass && npm install && npm start
+cd verigate-pass && npm ci && npm start
 
 # 5. Scan app (new terminal)
-cd verigate-scan && npm install && npm start
+cd verigate-scan && npm ci && npm start
 ```
 
 Then:

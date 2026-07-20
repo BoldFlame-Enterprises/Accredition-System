@@ -170,14 +170,11 @@ SportGatePass/ios/build/
 SportGateScan/android/app/build/
 SportGateScan/ios/build/
 
-# Package managers - use workspace management
-package-lock.json
+# Package-manager lockfiles are tracked independently by the root package and
+# each application submodule. This repository is not an npm workspace.
 yarn.lock
-**/package-lock.json
 **/yarn.lock
-
 pnpm-lock.yaml
-!/pnpm-lock.yaml
 
 # Yarn workspace files (if any)
 .yarn/*

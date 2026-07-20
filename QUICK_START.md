@@ -11,7 +11,7 @@
 
 ```bash
 cd verigate-pass
-npm install
+npm ci
 npm start
 ```
 
@@ -23,7 +23,7 @@ npm start
 
 ```bash
 cd verigate-scan
-npm install
+npm ci
 npm start
 ```
 
@@ -85,7 +85,7 @@ general@test.com / password123  - General
 ### If QR code doesn't appear
 
 - Make sure you're in the correct directory (`verigate-pass` or `verigate-scan`)
-- Make sure `npm install` completed successfully first
+- Make sure `npm ci` completed successfully first
 
 ### If apps don't connect
 

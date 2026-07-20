@@ -45,7 +45,7 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 
    ```bash
    cd verigate-pass
-   npm install
+   npm ci
    npm start
    ```
 
@@ -53,7 +53,7 @@ You now have **2 complete Android apps** that demonstrate a secure, offline-firs
 
    ```bash
    cd verigate-scan
-   npm install
+   npm ci
    npm start
    ```
 
