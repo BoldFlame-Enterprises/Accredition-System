@@ -17,7 +17,7 @@
     "setup:db": "npm --prefix backend run setup:db",
     "seed:db": "npm --prefix backend run seed:db",
     "migrate:events": "npm --prefix backend run migrate:events",
-    "migrate:phase01": "npm --prefix backend run migrate:phase01",
+    "migrate:contracts": "npm --prefix backend run migrate:contracts",
     "start:backend": "npm --prefix backend start",
     "start:web": "npm --prefix web-dashboard run preview",
     "build:backend": "npm --prefix backend run build",

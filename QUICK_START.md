@@ -26,7 +26,7 @@ In another terminal:
 npm run dev:web
 ```
 
-For an existing database, apply `npm run migrate:events` and then `npm run migrate:phase01` before starting the remediated backend.
+For an existing database, apply `npm run migrate:events` and then `npm run migrate:contracts` before starting the updated backend.
 
 ## Mobile apps
 

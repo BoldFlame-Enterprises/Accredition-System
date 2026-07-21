@@ -14,7 +14,7 @@ Demo mode is suitable for showing UI, camera scanning, area decisions, and offli
 
 ## Backend-integrated demo
 
-1. Start PostgreSQL, Redis, the backend, and dashboard; apply the Phase 1 migration and seed an event.
+1. Start PostgreSQL, Redis, the backend, and dashboard; apply the event and contract migrations, then seed an event.
 2. Configure `QR_AUTHORITY_PRIVATE_KEY_BASE64` only in the backend environment.
 3. Build Pass and Scan with `EXPO_PUBLIC_DEMO_MODE=false` and a device-reachable API URL.
 4. In the dashboard, give the attendee and scanner active membership in the same event and create area assignments.
