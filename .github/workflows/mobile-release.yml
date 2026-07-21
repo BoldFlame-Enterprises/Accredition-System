@@ -1,0 +1,238 @@
+name: Mobile APK Release
+run-name: Mobile APK release ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag in vMAJOR.MINOR.PATCH format
+        required: true
+        type: string
+      prerelease:
+        description: Mark the GitHub Release as a prerelease
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-apk-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  CI: true
+  EAS_CLI_VERSION: 21.0.2
+  RELEASE_TAG: ${{ inputs.tag }}
+
+jobs:
+  prepare:
+    name: Validate release request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate tag, token, and release state
+        shell: bash
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must use vMAJOR.MINOR.PATCH format, optionally followed by a prerelease suffix." >&2
+            exit 1
+          fi
+
+          if [[ -z "$EXPO_TOKEN" ]]; then
+            echo "The EXPO_TOKEN repository secret is required." >&2
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists." >&2
+            exit 1
+          fi
+
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag $RELEASE_TAG already exists without a release. Refusing to retarget it." >&2
+            exit 1
+          fi
+
+  build:
+    name: Build ${{ matrix.display_name }} APK
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - display_name: VeriGate Pass
+            directory: verigate-pass
+            artifact_name: verigate-pass-apk
+            file_stem: verigate-pass
+          - display_name: VeriGate Scan
+            directory: verigate-scan
+            artifact_name: verigate-scan-apk
+            file_stem: verigate-scan
+    steps:
+      - name: Check out the recorded component revisions
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: ${{ matrix.directory }}/package-lock.json
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: ${{ env.EAS_CLI_VERSION }}
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.directory }}
+        run: npm ci
+
+      - name: Run release preflight checks
+        working-directory: ${{ matrix.directory }}
+        run: |
+          npm run type-check
+          npm run lint
+          npm test
+
+      - name: Build and download signed APK
+        shell: bash
+        working-directory: ${{ matrix.directory }}
+        env:
+          COMPONENT: ${{ matrix.file_stem }}
+          APK_FILENAME: ${{ matrix.file_stem }}-${{ inputs.tag }}-android.apk
+        run: |
+          set -euo pipefail
+
+          build_json="$RUNNER_TEMP/$COMPONENT-build.json"
+          output_dir="$RUNNER_TEMP/$COMPONENT-output"
+          mkdir -p "$output_dir"
+
+          eas build \
+            --platform android \
+            --profile production \
+            --message "GitHub release $RELEASE_TAG from $GITHUB_SHA" \
+            --non-interactive \
+            --wait \
+            --json > "$build_json"
+
+          build_status="$(jq -r 'if type == "array" then .[0].status else .status end' "$build_json")"
+          build_url="$(jq -er 'if type == "array" then .[0].artifacts.buildUrl else .artifacts.buildUrl end | select(type == "string" and length > 0)' "$build_json")"
+
+          if [[ "$build_status" != "FINISHED" ]]; then
+            echo "EAS build finished with unexpected status: $build_status" >&2
+            exit 1
+          fi
+
+          curl \
+            --fail \
+            --location \
+            --retry 5 \
+            --retry-all-errors \
+            --output "$output_dir/$APK_FILENAME" \
+            "$build_url"
+
+          unzip -tqq "$output_dir/$APK_FILENAME"
+          cp "$build_json" "$output_dir/$COMPONENT-eas-build.json"
+          (
+            cd "$output_dir"
+            sha256sum "$APK_FILENAME" > "$APK_FILENAME.sha256"
+          )
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ runner.temp }}/${{ matrix.file_stem }}-output/*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: verigate-*-apk
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify artifacts and write release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t apks < <(find release-assets -maxdepth 1 -type f -name '*.apk' -print | sort)
+          if [[ "${#apks[@]}" -ne 2 ]]; then
+            echo "Expected exactly two APKs, found ${#apks[@]}." >&2
+            exit 1
+          fi
+
+          for apk in "${apks[@]}"; do
+            unzip -tqq "$apk"
+          done
+
+          (
+            cd release-assets
+            sha256sum ./*.apk > SHA256SUMS.txt
+          )
+
+          {
+            echo "Release tag: $RELEASE_TAG"
+            echo "Parent commit: $GITHUB_SHA"
+            echo "VeriGate Pass commit: $(git -C verigate-pass rev-parse HEAD)"
+            echo "VeriGate Scan commit: $(git -C verigate-scan rev-parse HEAD)"
+            echo "VeriGate Pass EAS project: f493b0bd-f62a-4073-90a8-47217af3b0dc"
+            echo "VeriGate Scan EAS project: f87b2c52-b3c6-4af0-8c83-21756a665b87"
+          } > release-assets/BUILD_INFO.txt
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          release_args=(
+            "$RELEASE_TAG"
+            release-assets/*.apk
+            release-assets/SHA256SUMS.txt
+            release-assets/BUILD_INFO.txt
+            --repo "$GITHUB_REPOSITORY"
+            --target "$GITHUB_SHA"
+            --title "VeriGate $RELEASE_TAG"
+            --generate-notes
+          )
+
+          if [[ "$PRERELEASE" == "true" ]]; then
+            release_args+=(--prerelease)
+          fi
+
+          gh release create "${release_args[@]}"
