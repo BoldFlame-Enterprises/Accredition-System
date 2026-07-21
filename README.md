@@ -56,7 +56,7 @@ Unlike traditional online verification systems, our approach stores encrypted us
 - **Target Users**: Event attendees (VIPs, staff, spectators)
 - **Key Features**:
   - **Anti-screenshot QR display** via `expo-screen-capture`
-  - **Device-bound QR codes** that cannot be shared or copied
+  - **Device-bound signed QR presentations** with a 60-second validity window
   - **Offline QR generation** with periodic access permission updates
   - **Biometric login** (`expo-local-authentication`) with secure credential storage
   - **Backgrounding blur + auto-logout** after inactivity
@@ -82,9 +82,9 @@ Unlike traditional online verification systems, our approach stores encrypted us
 
 #### **QR Code Security**
 
-- **Encrypted Content**: QR codes contain HMAC-SHA256 encrypted user data
-- **Device Binding**: QR codes include device-specific fingerprints
-- **Time-Limited Tokens**: QR codes expire and refresh automatically (1-hour default)
+- **Authority Signature**: the backend signs canonical event/device credentials with P-256
+- **Device Binding**: Pass signs each presentation with a per-installation SecureStore key certified by the backend credential
+- **Time-Limited Presentations**: displayed presentations rotate every 30 seconds and expire after 60 seconds
 - **Anti-Screenshot Protection**: Native mobile protection prevents screenshots
 - **Tamper Detection**: Checksum validation ensures QR integrity
 
@@ -227,7 +227,7 @@ scan_logs (
 
 3. **Emergency Procedures**:
    - **Manual Override**: Authorized personnel can grant access with reason logging
-   - **Network Outage**: Continue offline operation indefinitely
+   - **Network Outage**: Continue within the previously authenticated 24-hour session and signed credential validity
    - **Data Corruption**: Re-download database with integrity verification
 
 #### **QR Generator App Sync Flow**
@@ -339,9 +339,8 @@ cd web-dashboard
 cp .env.example .env
 npm run dev
 
-# Mobile apps (separate terminals) - Expo Go works for everything except
-# local DB encryption; use `npx expo prebuild && npx expo run:android` (or
-# `run:ios`) for the full feature set including SQLCipher.
+# Mobile apps require a custom dev client/full native build. Expo Go cannot
+# load the native SQLCipher dependency used by either application.
 cd verigate-pass && npm start
 cd verigate-scan && npm start
 ```
@@ -488,7 +487,7 @@ npm run preview         # Preview production build
 #### **Mobile Apps (Expo)**
 
 ```bash
-# Development (Expo Go works for everything except local DB encryption)
+# Development bundler (run the result in a custom development client)
 cd verigate-pass        # or verigate-scan
 npm start               # Start the Expo dev server
 npm run android         # Run on Android device/emulator
@@ -670,7 +669,7 @@ PEPPER_SECRET=additional_password_security_pepper
 QR_CODE_EXPIRE_MINUTES=60
 QR_CODE_REFRESH_INTERVAL=30
 # Must match the hardcoded secret in both mobile apps' DatabaseService
-QR_HMAC_SECRET=event_secret_key_2024
+QR_AUTHORITY_PRIVATE_KEY_BASE64=<base64 PKCS8 DER P-256 private key from secret manager>
 
 # Rate Limiting
 RATE_LIMIT_WINDOW_MS=900000
@@ -737,7 +736,7 @@ npm run dev             # http://localhost:3000
 cd web-dashboard && npm ci
 npm run dev              # http://localhost:5173
 
-# 4. Pass app (new terminal) - Expo Go is fine for this walkthrough
+# 4. Pass app (new terminal) - use a custom development client
 cd verigate-pass && npm ci && npm start
 
 # 5. Scan app (new terminal)

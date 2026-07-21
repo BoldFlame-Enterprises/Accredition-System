@@ -1,110 +1,55 @@
-# Quick Start Guide - VeriGate Access Control
+# VeriGate quick start
 
-## 🚀 How to Test on Your Phone (Easiest Method)
+## Install and validate
 
-### Step 1: Install Expo Go
+Use Node 22.14.0 and npm 10.9.2. The four applications are independent git submodules with independent lockfiles.
 
-- Download **Expo Go** from Google Play Store / App Store on your phone
-- This works for everything except the encrypted local database (see each app's README for the dev-client build needed for that)
-
-### Step 2: Start the VeriGate Pass App
-
-```bash
-cd verigate-pass
-npm ci
-npm start
+```powershell
+npm run ci:all
+npm run type-check
+npm test
 ```
 
-- A QR code will appear in the terminal
-- Open Expo Go on your phone and scan this QR code
-- The VeriGate Pass app will load on your phone
+## Backend and dashboard
 
-### Step 3: Start the VeriGate Scan App (in a new terminal)
+Create `backend/.env` from `.env.example`, configure PostgreSQL, Redis, JWT secrets, and a secret-managed `QR_AUTHORITY_PRIVATE_KEY_BASE64` containing a base64 PKCS#8 DER P-256 private key.
 
-```bash
-cd verigate-scan
-npm ci
-npm start
+```powershell
+npm run setup:db
+npm run seed:db
+npm run dev:backend
 ```
 
-- Another QR code will appear
-- Scan this QR code with Expo Go to load the VeriGate Scan app
+In another terminal:
 
-## 📱 Testing the Complete System
-
-Both apps work fully offline against seeded local demo data with no password. To test against the real backend instead (real event scoping, sync, dashboard visibility), enter `password123` for any of the seeded backend accounts below - see the root README's "End-to-end demo" section for the full backend setup.
-
-### Test Scenario 1: VIP Access (local demo data, no backend needed)
-
-1. **VeriGate Pass App**: Login with `sarah.vip@company.com` (leave password blank) - you'll see a QR code with VIP access level
-2. **VeriGate Scan App**: Login with `scanner1@event.com` (leave password blank), pick area "VIP Lounge", point the camera at the QR code from the Pass app → **ACCESS GRANTED** ✅
-
-### Test Scenario 2: Access Denied
-
-1. **VeriGate Pass App**: Login with `john.athlete@sports.com` (General level)
-2. **VeriGate Scan App**: Select area "VIP Lounge", scan the General user's QR code → **ACCESS DENIED** ❌
-
-## 🎯 Local Demo Users (built into each app, no backend required)
-
-### VeriGate Pass App (Event Attendees)
-
-```
-john.athlete@sports.com     - General Level
-sarah.vip@company.com       - VIP Level
-mike.staff@event.com        - Staff Level
-emma.security@event.com     - Security Level
-david.manager@event.com     - Management Level (All areas)
+```powershell
+npm run dev:web
 ```
 
-### VeriGate Scan App (Volunteers)
+For an existing database, apply `npm run migrate:events` and then `npm run migrate:phase01` before starting the remediated backend.
 
-```
-scanner1@event.com - Volunteer
-scanner2@event.com - Volunteer
-security@event.com - Security
-admin@event.com     - Admin
-```
+## Mobile apps
 
-## 🎯 Backend Demo Users (for real event sync - see root README)
+VeriGate Pass and Scan use native SQLCipher through `@op-engineering/op-sqlite`. Expo Go cannot run either application. Use a custom development client or full native/EAS build.
 
-```
-admin@test.com / password123    - Admin
-scanner@test.com / password123  - Scanner
-vip@test.com / password123      - VIP
-staff@test.com / password123    - Staff
-general@test.com / password123  - General
+Set a device-reachable `EXPO_PUBLIC_API_URL`, then build/run each application from its directory. Production profiles explicitly set `EXPO_PUBLIC_DEMO_MODE=false`.
+
+Local seed accounts and blank-password login exist only in an intentionally configured demo build:
+
+```powershell
+$env:EXPO_PUBLIC_DEMO_MODE='true'
+npx expo run:android
 ```
 
-## 🔧 Troubleshooting
+Do not use demo mode to validate production authentication. Production login requires backend credentials and an initial event sync; subsequent offline unlock is limited to the previously authenticated 24-hour event session.
 
-### If you see Metro bundler warnings
+## End-to-end check
 
-- The apps will still work perfectly in Expo Go
-- You'll see a QR code in the terminal - that means it's working
+1. Sign in to the dashboard and configure event membership, areas, levels, and assignments.
+2. Sign in to Pass with a backend attendee account and sync its own credential.
+3. Sign in to Scan with a backend scanner/admin account and sync the event database.
+4. Display the rotating Pass QR and scan it for a selected area.
+5. Disconnect networking and repeat before the credential/session expires.
+6. Reconnect and sync Scan; verify accepted records appear in monitoring/analytics.
 
-### If QR code doesn't appear
-
-- Make sure you're in the correct directory (`verigate-pass` or `verigate-scan`)
-- Make sure `npm ci` completed successfully first
-
-### If apps don't connect
-
-- Make sure your phone and computer are on the same WiFi network
-- Check that Expo Go is updated to the latest version
-- If testing against the real backend, make sure `EXPO_PUBLIC_API_URL` (or `expo.extra.apiBaseUrl` in `app.json`) points at a reachable IP, not `localhost` (your phone can't reach your computer's `localhost`)
-
-## 🎪 For the Events Committee Demo
-
-1. **Show both apps running on your phone**
-2. **Demonstrate the login process** for both attendees and volunteers
-3. **Show live QR scanning** with immediate visual + audio feedback
-4. **Test different access levels** (VIP vs General)
-5. **Highlight offline operation** (turn off WiFi and show it still works)
-6. **Show the admin dashboard** reflecting a scan a few seconds after syncing, if demoing against the real backend
-
-## 🚀 Next Steps for Production
-
-1. Create an Expo account: https://expo.dev/signup
-2. Run `eas login`
-3. `npx expo prebuild && eas build --profile production --platform android` (or `ios`) in each app directory
-4. Download builds from the Expo dashboard
+Offline presentations are valid for 60 seconds and can be replayed within that window when scanners cannot coordinate. Screenshot blocking is best-effort; zero-replay offline operation is not claimed.
