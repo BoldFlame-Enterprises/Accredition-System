@@ -1,11 +1,14 @@
 name: Mobile APK Release
-run-name: Mobile APK release ${{ inputs.tag }}
+run-name: Mobile APK release ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag in vMAJOR.MINOR.PATCH format
+        description: Release tag in vMAJOR.MINOR.PATCH format, optionally with a -prerelease suffix
         required: true
         type: string
       prerelease:
@@ -18,13 +21,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: mobile-apk-release-${{ inputs.tag }}
+  group: mobile-apk-release-${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
   cancel-in-progress: false
 
 env:
   CI: true
   EAS_CLI_VERSION: 21.0.2
-  RELEASE_TAG: ${{ inputs.tag }}
+  RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
 jobs:
   prepare:
@@ -32,6 +35,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Check out release source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Validate tag, token, and release state
         shell: bash
         env:
@@ -40,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "Release tag must use vMAJOR.MINOR.PATCH format, optionally followed by a prerelease suffix." >&2
             exit 1
           fi
@@ -55,7 +64,22 @@ jobs:
             exit 1
           fi
 
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Release commit $GITHUB_SHA is not contained by origin/main." >&2
+            exit 1
+          fi
+
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != "$RELEASE_TAG" ]]; then
+              echo "Automatic releases must be triggered by the requested tag." >&2
+              exit 1
+            fi
+
+            if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+              echo "Pushed tag $RELEASE_TAG could not be verified on GitHub." >&2
+              exit 1
+            fi
+          elif gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
             echo "Tag $RELEASE_TAG already exists without a release. Refusing to retarget it." >&2
             exit 1
           fi
@@ -80,20 +104,20 @@ jobs:
             file_stem: verigate-scan
     steps:
       - name: Check out the recorded component revisions
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           submodules: recursive
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: ${{ matrix.directory }}/package-lock.json
 
       - name: Set up Expo and EAS
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
           eas-version: ${{ env.EAS_CLI_VERSION }}
           packager: npm
@@ -109,6 +133,7 @@ jobs:
           npm run type-check
           npm run lint
           npm test
+          npm run doctor
 
       - name: Build and download signed APK
         shell: bash
@@ -155,7 +180,7 @@ jobs:
           )
 
       - name: Upload signed APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ runner.temp }}/${{ matrix.file_stem }}-output/*
@@ -171,13 +196,13 @@ jobs:
       contents: write
     steps:
       - name: Check out release source
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           submodules: recursive
           persist-credentials: false
 
       - name: Download APK artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: verigate-*-apk
           path: release-assets
@@ -216,7 +241,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          PRERELEASE: ${{ inputs.prerelease }}
+          MANUAL_PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
 
@@ -226,12 +251,24 @@ jobs:
             release-assets/SHA256SUMS.txt
             release-assets/BUILD_INFO.txt
             --repo "$GITHUB_REPOSITORY"
-            --target "$GITHUB_SHA"
             --title "VeriGate $RELEASE_TAG"
             --generate-notes
           )
 
-          if [[ "$PRERELEASE" == "true" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            release_args+=(--verify-tag)
+          else
+            release_args+=(--target "$GITHUB_SHA")
+          fi
+
+          is_prerelease=false
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            is_prerelease="$MANUAL_PRERELEASE"
+          elif [[ "$RELEASE_TAG" == *-* ]]; then
+            is_prerelease=true
+          fi
+
+          if [[ "$is_prerelease" == "true" ]]; then
             release_args+=(--prerelease)
           fi
 
