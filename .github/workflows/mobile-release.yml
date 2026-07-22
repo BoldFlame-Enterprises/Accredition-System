@@ -140,10 +140,10 @@ jobs:
         working-directory: ${{ matrix.directory }}
         env:
           COMPONENT: ${{ matrix.file_stem }}
-          APK_FILENAME: ${{ matrix.file_stem }}-${{ inputs.tag }}-android.apk
         run: |
           set -euo pipefail
 
+          APK_FILENAME="$COMPONENT-$RELEASE_TAG-android.apk"
           build_json="$RUNNER_TEMP/$COMPONENT-build.json"
           output_dir="$RUNNER_TEMP/$COMPONENT-output"
           mkdir -p "$output_dir"
