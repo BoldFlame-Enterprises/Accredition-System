@@ -165,10 +165,6 @@ ios/Pods/MMKV
 # Production builds
 backend/dist/
 web-dashboard/build/
-SportGatePass/android/app/build/
-SportGatePass/ios/build/
-SportGateScan/android/app/build/
-SportGateScan/ios/build/
 
 # Package-manager lockfiles are tracked independently by the root package and
 # each application submodule. This repository is not an npm workspace.

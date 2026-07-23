@@ -13,9 +13,9 @@ Traditional accreditation systems for events often rely on physical badges or co
 Our QR-based system provides:
 
 - **Offline-first verification** using local SQLite databases on scanner devices
-- **Secure QR codes** with device-bound encryption and anti-screenshot protection
+- **Device-bound signed QR presentations** with short validity and screen-capture protection
 - **Simplified user management** through CSV-like data structure
-- **Real-time synchronization** when network is available
+- **Foreground polling and synchronization** when network is available
 - **Scalable architecture** supporting 500+ users with multiple entry points
 
 ### **Key Innovation**
@@ -46,7 +46,7 @@ Unlike traditional online verification systems, our approach stores encrypted us
   - User management (CRUD operations)
   - Access level configuration (General, VIP, Staff, Security, Management)
   - Area management (Main Arena, VIP Lounge, Staff Areas, etc.)
-  - Real-time sync monitoring across scanner devices
+  - Polling-based sync monitoring across scanner devices
   - Comprehensive reporting and analytics
   - Bulk user import/export functionality
 
@@ -61,7 +61,7 @@ Unlike traditional online verification systems, our approach stores encrypted us
   - **Biometric login** (`expo-local-authentication`) with secure credential storage
   - **Backgrounding blur + auto-logout** after inactivity
   - **Access status indicator** showing permitted areas
-  - **Live event sync + local/push notifications**
+  - **Foreground event sync + local/provider notification integration**
 
 #### 4. **VeriGate Scan App** (`/verigate-scan`)
 
@@ -84,9 +84,9 @@ Unlike traditional online verification systems, our approach stores encrypted us
 
 - **Authority Signature**: the backend signs canonical event/device credentials with P-256
 - **Device Binding**: Pass signs each presentation with a per-installation SecureStore key certified by the backend credential
-- **Time-Limited Presentations**: displayed presentations rotate every 30 seconds and expire after 60 seconds
-- **Anti-Screenshot Protection**: Native mobile protection prevents screenshots
-- **Tamper Detection**: Checksum validation ensures QR integrity
+- **Time-Limited Presentations**: displayed presentations rotate every 30 seconds and have a nominal 60-second lifetime; verification separately allows up to 60 seconds of clock skew
+- **Anti-Screenshot Protection**: native mobile protection reduces casual capture but is not a complete replay defense
+- **Tamper Detection**: canonical credential and presentation signatures provide integrity; QR content is signed plaintext, not encrypted payload data
 
 #### **Local Database Security**
 
@@ -94,7 +94,7 @@ Unlike traditional online verification systems, our approach stores encrypted us
 - **Device-Specific Keys**: Encryption keys tied to device hardware
 - **Integrity Verification**: SHA-256 checksums validate database integrity
 - **Data Expiration**: Local data auto-expires after event completion
-- **Sync Validation**: All synchronization includes cryptographic verification
+- **Sync Validation**: HTTPS/authentication protect transport; snapshot checksums describe content, while signed QR authority data is verified independently
 
 #### **Authentication & Authorization**
 
@@ -107,8 +107,8 @@ Unlike traditional online verification systems, our approach stores encrypted us
 ### **Data Flow Security**
 
 1. **User Registration** → Secure password hashing and storage
-2. **QR Generation** → Device-bound encrypted tokens
-3. **Database Sync** → Encrypted payload with integrity checks
+2. **QR Generation** → Authority/device-signed plaintext presentations
+3. **Database Sync** → Authenticated full event snapshots stored in encrypted local databases
 4. **Local Verification** → Offline validation with audit logging
 5. **Log Synchronization** → Batch upload with deduplication
 
@@ -216,14 +216,13 @@ scan_logs (
 #### **Scanner App Sync Flow**
 
 1. **Initial Setup**:
-   - Download compressed user database (encrypted SQLite)
-   - Verify database integrity with SHA-256 checksum
-   - Store locally with device-specific encryption
+   - Download complete event-scoped user and area snapshots
+   - Retain the trusted event QR authority and snapshot metadata
+   - Store the data in the device's SQLCipher database
 2. **During Event**:
    - **Primary**: Verify QR codes using local database
-   - **Fallback**: API verification if local check inconclusive
    - **Logging**: Store all scans locally with timestamps
-   - **Periodic Sync**: Upload logs and check for database updates (every 30 minutes)
+   - **Foreground Sync**: Poll at a nominal 10-second cadence, with bounded backoff/jitter after failure, and retain manual feedback
 
 3. **Emergency Procedures**:
    - **Manual Override**: Authorized personnel can grant access with reason logging
@@ -233,17 +232,20 @@ scan_logs (
 #### **QR Generator App Sync Flow**
 
 1. **Authentication**: Login once with secure credential storage
-2. **QR Generation**: Create device-bound QR codes locally
-3. **Permission Updates**: Refresh access permissions hourly when online
+2. **QR Generation**: Create device-bound signed presentations locally from the current credential
+3. **Permission Updates**: Pull the authenticated attendee's full event projection on a nominal 10-second foreground cadence with backoff/jitter
 4. **Offline Capability**: Generate QR codes without network connectivity
+
+Neither mobile app claims supported background synchronization. Both expose manual foreground sync; the automatic scheduler is active only while the authenticated screen lifecycle is active.
 
 ### **Data Synchronization Protocols**
 
-#### **Delta Synchronization**
+#### **Snapshot and queue synchronization**
 
-- Only sync changes since last update timestamp
-- Minimize bandwidth usage for large user databases
-- Conflict resolution using server-side timestamps
+- User and area data are complete foreground snapshots, not delta patches
+- Scan logs use batches of 25 with at most four batches per cycle
+- Incidents and overrides use at most two batches of ten per queue per cycle
+- Accepted/duplicate acknowledgements mark rows synced; structured terminal rejections remain retained; transient/authentication failures remain pending and stop safely
 
 #### **Integrity Verification**
 
@@ -452,14 +454,12 @@ npm run start:pass      # verigate-pass (Expo dev server)
 npm run start:scan      # verigate-scan (Expo dev server)
 npm run type-check      # all four apps
 npm run lint            # dashboard and both mobile apps
-npm test                # committed backend test suite
+npm test                # committed backend, dashboard, Pass, and Scan tests
 npm run doctor          # Expo Doctor for both mobile apps
 npm run validate        # type-check, lint, tests, builds, and Expo Doctor
 ```
 
-The dashboard and mobile apps do not yet contain committed test files, so the
-aggregate test gate runs the existing backend suite only. Their non-watch test
-commands are available for focused use as coverage is added in later phases.
+The aggregate test gate runs the committed backend, dashboard, Pass, and Scan suites. These tests and static builds validate source behavior; they are not substitutes for hosted-service, provider, or physical-device validation.
 
 #### **Backend Specific**
 
@@ -541,7 +541,8 @@ POST /api/events/:id/members (admin)   Body: { user_id, role_in_event? }
 ```apis
 GET /api/qr/generate?event_id=<id>
   Headers: { Authorization: "Bearer <token>" }
-  Response: { qr_content, user_info, expires_at }
+  Body: { device_id, device_public_key }
+  Response: { contract_version: "qr-credential-v2", credential, user_info, expires_at, generated_at }
 
 POST /api/qr/verify        (deprecated alias for /api/scan/verify - same real verification)
   Body: { qr_content, area_id, event_id }
@@ -560,14 +561,14 @@ POST /api/scan/verify       # the one real, server-side verification fallback pa
 
 ```apis
 GET /api/sync/users-database?event_id=<id>
-  Response: { users[], metadata: { checksum, timestamp, version, event_id } }
+  Response: { contract_version: "event-user-v2", users[], metadata: { checksum, timestamp, version, event_id } }
 
 GET /api/sync/areas-database?event_id=<id>
-  Response: { areas[], metadata: { checksum, timestamp, event_id } }
+  Response: { areas[], qr_authority_public_key, metadata: { checksum, timestamp, event_id } }
 
 POST /api/sync/scan-logs
   Body: { logs[] /* each may include device_scan_id for de-dup */, device_id, event_id }
-  Response: { processed, duplicates, errors, total }
+  Response: { contract_version: "queue-ack-v2", results[], accepted, duplicates, rejected, retryable_errors, total }
 
 GET /api/sync/check-updates?event_id=<id>
   Query: { users_version?, areas_version? }
@@ -585,14 +586,17 @@ GET /api/analytics/breakdown?event_id=<id>        # by area / access level / sca
 GET /api/analytics/export/scans.csv?event_id=<id>  # CSV export
 
 POST /api/notifications/register-device   Body: { event_id, token, platform }
+POST /api/notifications/unregister-device Body: { token }
 POST /api/notifications/send              (admin) Body: { event_id, title, body, user_ids? }
 POST /api/notifications/sync-heartbeat    Body: { device_id, app, event_id, platform? }
-GET  /api/notifications/device-status?event_id=<id>  (admin) # real-time sync monitor
+GET  /api/notifications/device-status?event_id=<id>  (admin) # polled sync monitor
 
 GET  /api/incidents?event_id=<id>          (admin)
-POST /api/incidents                        Body: { event_id, description, category?, area_id? }
+POST /api/incidents                        Body: { event_id, description, category?, area_id?, client_record_id, occurred_at }
+  Response: { contract_version: "queue-ack-v2", client_record_id, status, record? }
 GET  /api/incidents/overrides?event_id=<id> (admin)
-POST /api/incidents/overrides              Body: { event_id, area_id, reason, access_granted?, user_id? }
+POST /api/incidents/overrides              Body: { event_id, area_id, reason, access_granted?, user_id?, client_record_id, occurred_at }
+  Response: { contract_version: "queue-ack-v2", client_record_id, status, record? }
 
 GET /api/users
   Query: { page?, limit?, search?, role?, is_active? }
@@ -665,10 +669,7 @@ JWT_REFRESH_EXPIRE_TIME=7d
 ENCRYPTION_KEY=your_32_character_encryption_key
 PEPPER_SECRET=additional_password_security_pepper
 
-# QR Configuration
-QR_CODE_EXPIRE_MINUTES=60
-QR_CODE_REFRESH_INTERVAL=30
-# Must match the hardcoded secret in both mobile apps' DatabaseService
+# QR signing authority (private key remains backend-only; mobile apps receive public credentials)
 QR_AUTHORITY_PRIVATE_KEY_BASE64=<base64 PKCS8 DER P-256 private key from secret manager>
 
 # Rate Limiting
@@ -749,17 +750,14 @@ Then:
 3. In the pass app, log in as that user with their email + `password123` (fill in the password field so it authenticates against the real backend and syncs) — the QR screen shows their real, event-scoped access level and areas.
 4. In the scan app, log in as `scanner@test.com` / `password123`, select the same area, and scan the pass app's QR — you'll get a real green "GRANTED" result plus audio feedback, logged locally.
 5. Tap **Sync with event** in the scan app to upload the scan log to the backend.
-6. Back in the dashboard, the **Overview**/**Analytics** pages reflect the new scan within ~15-60s (cache TTL), and **Sync Monitor** shows the scanner device as online.
-7. In **Access & Assignments**, change that user's access level or area — this pushes a real Android FCM notification to the pass app if a `google-services.json` was provided (see `verigate-pass/README.md`); otherwise it fails open silently and the pass app picks up the change on its next manual sync.
+6. Back in the dashboard, the polling **Overview**/**Analytics** pages refresh approximately every 10 seconds; backend live aggregates use five-second cache windows retained for 15 seconds. **Sync Monitor** uses the same polling model.
+7. In **Access & Assignments**, change that user's access level or area. With a correctly configured provider/device, Pass can receive the Android notification; otherwise provider sending fails open and the foreground/manual sync path still refreshes access.
 
 For local SQLCipher encryption and the rest of the mobile feature set (biometric login, manual entry, overrides, incident reporting), build a dev client per the mobile apps' READMEs (`npx expo prebuild && npx expo run:android`) instead of using Expo Go.
 
 ## 🧭 Future Work
 
-Everything in scope for this build is implemented, with one deliberate exception:
-
-- **iOS remote push (APNs)**: fully implemented on the backend (`server/services/push.ts`, raw HTTP/2 + JWT provider tokens, no third-party SDK) and gated behind `APNS_ENABLED=false` by default, since it requires a paid Apple Developer Program membership. Set the flag and the `APNS_*` env vars to turn it on — no app-side code changes are needed, and it never breaks the Android path or builds while off.
-- **Remote push to the scanner app** was intentionally left as local-only (sync-stale warnings) per the spec's explicit examples — wiring up remote push there would reuse the same `device_tokens`/`push.ts` path already built for the pass app.
+Repository release evidence covers signed Android cloud build/publication for an exact source revision. It does not establish installation, physical-device notification/camera/biometric/SQLCipher behavior, process-kill recovery, provider delivery, or any iOS behavior. APNs remains gated off by default and requires separate provider/device validation. Scan intentionally remains local-notification-only and cancels its stale-session warning on logout.
 
 ## 🤝 Contributing
 
