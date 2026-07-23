@@ -59,6 +59,83 @@ jobs:
       - run: npm run build
       - run: npm test -- --runInBand
 
+  database-runtime:
+    name: Database runtime (${{ matrix.lineage }}, ${{ matrix.timezone }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        lineage:
+          - blank
+          - historical
+          - current
+        timezone:
+          - UTC
+          - America/New_York
+          - Asia/Kolkata
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: accreditation_system
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d accreditation_system"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      RUN_CONTRACT_RUNTIME: true
+      MIGRATION_TEST_LINEAGE: ${{ matrix.lineage }}
+      TZ: ${{ matrix.timezone }}
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: accreditation_system
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_SSL: false
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+    steps:
+      - name: Check out repository and submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+      - name: Verify fresh setup and idempotent migration command
+        run: |
+          npm run setup:db
+          npm run migrate:db
+      - name: Run migration and application runtime contracts
+        run: >-
+          npm test -- --runInBand
+          server/__tests__/database-migrations.runtime.test.ts
+          server/__tests__/runtime-contracts.test.ts
+
   dashboard:
     name: Web dashboard
     runs-on: ubuntu-latest

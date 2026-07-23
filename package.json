@@ -16,6 +16,8 @@
     "doctor": "npm --prefix verigate-pass run doctor && npm --prefix verigate-scan run doctor",
     "setup:db": "npm --prefix backend run setup:db",
     "seed:db": "npm --prefix backend run seed:db",
+    "migrate:db": "npm --prefix backend run migrate:db",
+    "migrate:status": "npm --prefix backend run migrate:status",
     "migrate:events": "npm --prefix backend run migrate:events",
     "migrate:contracts": "npm --prefix backend run migrate:contracts",
     "start:backend": "npm --prefix backend start",
