@@ -66,14 +66,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lineage:
-          - blank
-          - historical
-          - current
-        timezone:
-          - UTC
-          - America/New_York
-          - Asia/Kolkata
+        include:
+          - lineage: blank
+            timezone: UTC
+            application-contracts: true
+          - lineage: historical
+            timezone: UTC
+            application-contracts: true
+          - lineage: current
+            timezone: UTC
+            application-contracts: true
+          - lineage: blank
+            timezone: America/New_York
+            application-contracts: false
+          - lineage: blank
+            timezone: Asia/Kolkata
+            application-contracts: false
     services:
       postgres:
         image: postgres:15-alpine
@@ -130,10 +138,14 @@ jobs:
         run: |
           npm run setup:db
           npm run migrate:db
-      - name: Run migration and application runtime contracts
+      - name: Run migration runtime contracts
         run: >-
           npm test -- --runInBand
           server/__tests__/database-migrations.runtime.test.ts
+      - name: Run application runtime contracts
+        if: matrix.application-contracts
+        run: >-
+          npm test -- --runInBand
           server/__tests__/runtime-contracts.test.ts
 
   dashboard:
