@@ -333,6 +333,9 @@ cd backend
 cp .env.example .env
 # Edit .env with your database credentials
 npm run setup:db
+# Only for an explicitly confirmed disposable database: set
+# ALLOW_DATABASE_SEED=true and SEED_DATABASE_NAME_CONFIRMATION to the exact
+# current database name in .env, then remove/reset both values afterward.
 npm run seed:db
 npm run dev
 
@@ -446,7 +449,7 @@ Native `android/`/`ios/` folders for the two Expo apps don't exist in git — th
 ```bash
 npm run ci:all          # reproducible install for root and all four apps
 npm run setup:db        # backend: create database tables and indexes
-npm run seed:db         # backend: populate with demo event + test data
+npm run seed:db         # backend: gated destructive demo-data replacement
 npm run dev             # backend + web dashboard, concurrently
 npm run dev:backend     # backend only
 npm run dev:web         # web dashboard only
@@ -470,7 +473,7 @@ npm run build           # Compile TypeScript to JavaScript
 npm start               # Run compiled JavaScript
 npm run setup:db        # Create database tables and indexes (fresh install)
 npm run migrate:events  # Upgrade an existing pre-events database in place
-npm run seed:db         # Populate with demo event + test data
+npm run seed:db         # Gated destructive demo-data replacement
 npm run type-check      # TypeScript type validation
 npm test                # Jest test suite
 ```
@@ -613,6 +616,14 @@ GET  /api/users/export/csv      (admin)
 
 After running `npm run seed:db` in `backend/`, these test accounts are available (all scoped to the seeded "VeriGate Demo Championship" event):
 
+The command always requires `ALLOW_DATABASE_SEED=true` and
+`SEED_DATABASE_NAME_CONFIRMATION` equal to `SELECT current_database()`, and it
+refuses `NODE_ENV=production`. It transactionally deletes assignments, scans,
+memberships, `%@test.com` users, access levels, areas, and events. Cascades also
+remove event-scoped device tokens/sync status/credentials, incidents, and
+emergency overrides. Other global users are preserved, but rows tied to deleted
+events are not. Use only a disposable development database.
+
 - **Admin**: `admin@test.com / password123` (Full system access)
 - **Scanner**: `scanner@test.com / password123` (Scanner app access, Staff level)
 - **VIP User**: `vip@test.com / password123` (VIP areas access)
@@ -730,7 +741,10 @@ docker-compose up -d postgres redis
 # 2. Backend
 cd backend && npm ci
 cp .env.example .env   # fill in DB_* at minimum
-npm run setup:db && npm run seed:db
+npm run setup:db
+# For this disposable database only, set ALLOW_DATABASE_SEED=true and set
+# SEED_DATABASE_NAME_CONFIRMATION to its exact current_database(), then:
+npm run seed:db
 npm run dev             # http://localhost:3000
 
 # 3. Web dashboard (new terminal)
