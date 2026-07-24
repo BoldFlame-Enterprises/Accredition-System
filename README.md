@@ -572,10 +572,6 @@ GET /api/sync/areas-database?event_id=<id>
 POST /api/sync/scan-logs
   Body: { logs[] /* each may include device_scan_id for de-dup */, device_id, event_id }
   Response: { contract_version: "queue-ack-v2", results[], accepted, duplicates, rejected, retryable_errors, total }
-
-GET /api/sync/check-updates?event_id=<id>
-  Query: { users_version?, areas_version? }
-  Response: { users_update_available, areas_update_available }
 ```
 
 ### **Admin, Analytics & Notification Endpoints**
