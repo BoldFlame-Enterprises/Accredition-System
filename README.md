@@ -114,7 +114,7 @@ Unlike traditional online verification systems, our approach stores encrypted us
 
 ## 📊 Database Schema
 
-Multi-event tenancy is first-class: `events` and `event_members` sit above everything else, and `access_levels`, `areas`, `access_assignments`, and `scan_logs` are all scoped by `event_id` (full DDL in `backend/server/scripts/setup-database.ts`). Membership is **multi-event** — a user can belong to more than one event over time via `event_members`, separate from the per-area `access_assignments` below. Existing pre-events databases upgrade in place via `npm run migrate:events`, which preserves all data under an auto-created "Default Event".
+Multi-event tenancy is first-class: `events` and `event_members` sit above everything else, and `access_levels`, `areas`, `access_assignments`, and `scan_logs` are all scoped by `event_id`. The ordered, checksummed registry in `backend/server/database/migrationRegistry.ts` is the schema authority for both blank and existing databases. Membership is **multi-event** — a user can belong to more than one event over time via `event_members`, separate from the per-area `access_assignments` below. See [Database Operations](docs/database-operations.md) before migrating any non-disposable database.
 
 ### **Core Tables** (event-scoped tables shown without their `event_id INTEGER NOT NULL REFERENCES events(id)` column for brevity)
 
@@ -332,7 +332,12 @@ npm run ci:all
 cd backend
 cp .env.example .env
 # Edit .env with your database credentials
+# For a blank disposable database:
 npm run setup:db
+# For an existing database instead, inspect the immutable migration ledger:
+npm run migrate:status
+# Run this only after the documented backup and isolated-restore gates pass.
+npm run migrate:db
 # Only for an explicitly confirmed disposable database: set
 # ALLOW_DATABASE_SEED=true and SEED_DATABASE_NAME_CONFIRMATION to the exact
 # current database name in .env, then remove/reset both values afterward.
@@ -448,7 +453,9 @@ Native `android/`/`ios/` folders for the two Expo apps don't exist in git — th
 
 ```bash
 npm run ci:all          # reproducible install for root and all four apps
-npm run setup:db        # backend: create database tables and indexes
+npm run setup:db        # backend: apply the registry to a blank database
+npm run migrate:status  # backend: read-only ledger/checksum status
+npm run migrate:db      # backend: apply pending capability migrations
 npm run seed:db         # backend: gated destructive demo-data replacement
 npm run dev             # backend + web dashboard, concurrently
 npm run dev:backend     # backend only
@@ -471,8 +478,9 @@ cd backend
 npm run dev             # Start with hot reload (ts-node-dev)
 npm run build           # Compile TypeScript to JavaScript
 npm start               # Run compiled JavaScript
-npm run setup:db        # Create database tables and indexes (fresh install)
-npm run migrate:events  # Upgrade an existing pre-events database in place
+npm run setup:db        # Apply the complete registry to a blank database
+npm run migrate:status  # Read-only ledger/checksum status
+npm run migrate:db      # Apply every pending capability in registry order
 npm run seed:db         # Gated destructive demo-data replacement
 npm run type-check      # TypeScript type validation
 npm test                # Jest test suite
@@ -702,7 +710,8 @@ APNS_PRODUCTION=false
 - [ ] Change all default passwords and secrets
 - [ ] Enable HTTPS with valid SSL certificates
 - [ ] Configure firewall rules for database access
-- [ ] Setup backup and recovery procedures
+- [ ] Record deployment-specific backup/PITR owner, retention, RPO, and RTO
+- [ ] Prove the latest backup with an isolated restore before schema migration
 - [ ] Enable audit logging and monitoring
 - [ ] Implement intrusion detection
 - [ ] Regular security updates and patches
