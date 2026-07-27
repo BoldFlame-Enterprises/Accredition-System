@@ -40,10 +40,13 @@ services:
       - DB_PASSWORD=postgres
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
-      - JWT_REFRESH_SECRET=your_super_secret_refresh_key_change_this_in_production
-      - ENCRYPTION_KEY=change_this_32_character_key_prod
-      - PEPPER_SECRET=change_this_pepper_in_production
+      - JWT_ACCOUNT_ACCESS_SECRET=${JWT_ACCOUNT_ACCESS_SECRET:?JWT_ACCOUNT_ACCESS_SECRET is required}
+      - JWT_ACCOUNT_REFRESH_SECRET=${JWT_ACCOUNT_REFRESH_SECRET:?JWT_ACCOUNT_REFRESH_SECRET is required}
+      - JWT_DEVICE_ACCESS_SECRET=${JWT_DEVICE_ACCESS_SECRET:?JWT_DEVICE_ACCESS_SECRET is required}
+      - JWT_DEVICE_REFRESH_SECRET=${JWT_DEVICE_REFRESH_SECRET:?JWT_DEVICE_REFRESH_SECRET is required}
+      - JWT_AUDIT_ACCESS_SECRET=${JWT_AUDIT_ACCESS_SECRET:?JWT_AUDIT_ACCESS_SECRET is required}
+      - JWT_ISSUER=${JWT_ISSUER:?JWT_ISSUER is required}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
       - QR_AUTHORITY_PRIVATE_KEY_BASE64=${QR_AUTHORITY_PRIVATE_KEY_BASE64:-}
       - APNS_ENABLED=false
     ports:

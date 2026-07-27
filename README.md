@@ -701,14 +701,17 @@ REDIS_PORT=6379
 REDIS_PASSWORD=
 
 # JWT Security
-JWT_SECRET=your_production_jwt_secret_256_bits_minimum
-JWT_REFRESH_SECRET=your_production_refresh_secret
+JWT_ACCOUNT_ACCESS_SECRET=independent_random_value_of_at_least_32_bytes
+JWT_ACCOUNT_REFRESH_SECRET=independent_random_value_of_at_least_32_bytes
+JWT_DEVICE_ACCESS_SECRET=independent_random_value_of_at_least_32_bytes
+JWT_DEVICE_REFRESH_SECRET=independent_random_value_of_at_least_32_bytes
+JWT_AUDIT_ACCESS_SECRET=independent_random_value_of_at_least_32_bytes
+JWT_ISSUER=https://your-api.example.com
 JWT_EXPIRE_TIME=1h
 JWT_REFRESH_EXPIRE_TIME=7d
 
 # Encryption
 ENCRYPTION_KEY=your_32_character_encryption_key
-PEPPER_SECRET=additional_password_security_pepper
 
 # QR signing authority (private key remains backend-only; mobile apps receive public credentials)
 QR_AUTHORITY_PRIVATE_KEY_BASE64=<base64 PKCS8 DER P-256 private key from secret manager>
