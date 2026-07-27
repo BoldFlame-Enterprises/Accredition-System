@@ -116,6 +116,19 @@ Unlike traditional online verification systems, our approach stores encrypted us
 
 Multi-event tenancy is first-class: `events` and `event_members` sit above everything else, and `access_levels`, `areas`, `access_assignments`, and `scan_logs` are all scoped by `event_id`. The ordered, checksummed registry in `backend/server/database/migrationRegistry.ts` is the schema authority for both blank and existing databases. Membership is **multi-event** — a user can belong to more than one event over time via `event_members`, separate from the per-area `access_assignments` below. See [Database Operations](docs/database-operations.md) before migrating any non-disposable database.
 
+Mobile authority is also event- and app-scoped. A production login is exchanged
+for an installation registration before Pass or Scan can use protected mobile
+routes. Event administrators see and control registrations only for events they
+administer. Deregistration revokes normal authority and permits Scan only a
+server-bounded upload of records that occurred before deregistration;
+blacklisting permits no final upload and blocks re-registration until an event
+administrator removes the block.
+
+Incidents and emergency overrides use explicit, version-checked review actions
+instead of direct status replacement. Assignment identifies the expected owner,
+while immutable activity records the administrator who actually made each
+decision. Any administrator for the event may complete an assigned review.
+
 ### **Core Tables** (event-scoped tables shown without their `event_id INTEGER NOT NULL REFERENCES events(id)` column for brevity)
 
 #### **Users Table**
@@ -598,12 +611,25 @@ POST /api/notifications/send              (admin) Body: { event_id, title, body,
 POST /api/notifications/sync-heartbeat    Body: { device_id, app, event_id, platform? }
 GET  /api/notifications/device-status?event_id=<id>  (admin) # polled sync monitor
 
+POST /api/devices/session
+GET  /api/devices/state                     # Pass registration state
+GET  /api/devices/scan-state                # Scan registration state
+GET  /api/devices/events/:event_id          # event-administrator registration directory
+POST /api/devices/events/:event_id/registrations/:id/deregister
+POST /api/devices/events/:event_id/registrations/:id/blacklist
+POST /api/devices/events/:event_id/registrations/:id/unblacklist
+POST /api/devices/audit-credential          # Scan-only bounded deregistration upload
+
 GET  /api/incidents?event_id=<id>          (admin)
 POST /api/incidents                        Body: { event_id, description, category?, area_id?, client_record_id, occurred_at }
   Response: { contract_version: "queue-ack-v2", client_record_id, status, record? }
+POST /api/incidents/:id/actions/:action     # assign, begin-review, resolve, dismiss, reopen
+GET  /api/incidents/:id/activity
 GET  /api/incidents/overrides?event_id=<id> (admin)
 POST /api/incidents/overrides              Body: { event_id, area_id, reason, access_granted?, user_id?, client_record_id, occurred_at }
   Response: { contract_version: "queue-ack-v2", client_record_id, status, record? }
+POST /api/incidents/overrides/:id/actions/:action # assign, begin-review, complete-review, reopen
+GET  /api/incidents/overrides/:id/activity
 
 GET /api/users
   Query: { page?, limit?, search?, role?, is_active? }

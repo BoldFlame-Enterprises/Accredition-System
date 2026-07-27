@@ -171,7 +171,8 @@ jobs:
       - run: npm ci
       - run: npm run type-check
       - run: npm run lint
-      - run: npm test
+      - name: Run dashboard tests deterministically
+        run: npm exec -- vitest run --maxWorkers=1
       - run: npm run build
 
   mobile:
