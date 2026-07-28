@@ -98,7 +98,8 @@ Unlike traditional online verification systems, our approach stores encrypted us
 
 #### **Authentication & Authorization**
 
-- **JWT-based Authentication**: Secure token-based authentication
+- **Purpose-bound Authentication**: Separate account, device, and audit JWT
+  audiences backed by current server-side session authority
 - **Argon2id Password Hashing**: State-of-the-art password security
 - **Role-Based Access Control**: Admin, Scanner, User roles with specific permissions
 - **Refresh Token Rotation**: Automatic token refresh for sustained security
@@ -106,7 +107,8 @@ Unlike traditional online verification systems, our approach stores encrypted us
 
 ### **Data Flow Security**
 
-1. **User Registration** → Secure password hashing and storage
+1. **Administrator Enrollment** → Pending identity plus a one-time activation
+   token for approved out-of-band delivery
 2. **QR Generation** → Authority/device-signed plaintext presentations
 3. **Database Sync** → Authenticated full event snapshots stored in encrypted local databases
 4. **Local Verification** → Offline validation with audit logging
@@ -534,17 +536,22 @@ npm run build:android   # or: npm run build:ios
 ### **Authentication Endpoints**
 
 ```apis
-POST /api/auth/register
-  Body: { email, name, phone, password, role? }
-  Response: { user, accessToken, refreshToken }
-
 POST /api/auth/login
-  Body: { email, password }
-  Response: { user, accessToken, refreshToken }
+  Body: { email, password, client_kind }
+  Dashboard response: { user, accessToken, csrfToken } + HttpOnly refresh cookie
+  Mobile response: { user, accessToken, refreshToken }
+
+GET /api/auth/csrf
+  Response: { csrfToken } for the current browser refresh session
 
 POST /api/auth/refresh
-  Body: { refreshToken }
-  Response: { accessToken, refreshToken }
+  Dashboard: refresh cookie + X-CSRF-Token
+  Mobile: Body { refreshToken }
+
+POST /api/auth/activate
+POST /api/auth/reset-password
+POST /api/auth/logout
+POST /api/auth/logout-all
 ```
 
 ### **Event Endpoints**

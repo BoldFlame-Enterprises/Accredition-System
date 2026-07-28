@@ -15,6 +15,14 @@ jobs:
     name: Root and Compose
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      JWT_ACCOUNT_ACCESS_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      JWT_ACCOUNT_REFRESH_SECRET: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      JWT_DEVICE_ACCESS_SECRET: cccccccccccccccccccccccccccccccc
+      JWT_DEVICE_REFRESH_SECRET: dddddddddddddddddddddddddddddddd
+      JWT_AUDIT_ACCESS_SECRET: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+      JWT_ISSUER: verigate-ci-compose-validation
+      ENCRYPTION_KEY: ffffffffffffffffffffffffffffffff
     steps:
       - name: Check out repository and submodules
         uses: actions/checkout@v6
@@ -84,7 +92,7 @@ jobs:
             application-contracts: false
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:17-alpine
         env:
           POSTGRES_DB: accreditation_system
           POSTGRES_USER: postgres
@@ -147,6 +155,11 @@ jobs:
         run: >-
           npm test -- --runInBand
           server/__tests__/runtime-contracts.test.ts
+      - name: Run composed authorization matrix
+        if: matrix.application-contracts
+        run: >-
+          npm test -- --runInBand
+          server/__tests__/authorization-matrix.runtime.test.ts
 
   dashboard:
     name: Web dashboard
