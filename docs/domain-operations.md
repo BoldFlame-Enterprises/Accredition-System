@@ -45,7 +45,9 @@ delivery never runs inside the API request. Query
 `GET /api/notifications/jobs/:id?event_id=<id>` for event-scoped status,
 provider totals, and ordered attempt history. Global administrators and active
 administrators of that event may read it; a job from another event is not
-returned.
+returned. Attempt results identify each destination by database token id, user
+id, platform, status, and provider error code; raw push tokens are never stored
+in job history.
 
 The in-process worker:
 
