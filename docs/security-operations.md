@@ -33,10 +33,11 @@ and isolated restore procedure. Confirm the exact target, certificate chain,
 backup integrity, maintenance window, rollback owner, and historical timestamp
 timezone. This repository does not automate or attest hosted backups.
 
-The current registry continues through migration 10,
-`identity-enrollment-and-abuse-controls`, migration 11,
-`event-membership-role-integrity`, and migration 12,
-`notification-delivery-jobs`.
+The current registry continues through migration 13,
+`qr-credential-trust`, and migration 14, `scan-decision-evidence`. Migration 13
+adds credential/revocation and trust-generation authority. Migration 14 adds
+nullable, bounded scan-decision evidence. Apply both only through the migration
+runner after the normal backup/restore and historical-lineage preflight.
 
 Do not edit an applied migration or its checksum. A mismatch is a stop
 condition.
@@ -68,6 +69,67 @@ server revocation and always clears local authority even when the network call
 fails. Device deregistration revokes normal authority; a short Scan audit
 credential can upload only eligible pre-cutoff records. Blacklisting permits no
 final upload.
+
+## QR trust, offline decisions, and replay limits
+
+The compact v3 QR is identity proof, not an embedded authorization list. It
+binds attendee, event, Pass installation, credential/registration generations,
+and the Pass public key under an exact P-256 authority signature. The selected
+area is authorized from Scan's synchronized active event projection or current
+PostgreSQL state during server fallback.
+
+Presentations have a nominal 60-second lifetime and permit at most 60 seconds
+of clock skew at either boundary. Pass refuses a v3 presentation above 800
+UTF-8 bytes or QR version 20. Those source limits are not physical camera
+evidence.
+
+Scan's QR trust snapshot is current for 60 seconds and hard-expires after 24
+hours. Between those thresholds it is soft-stale: invalid signatures, wrong
+events, invalid time bounds, and known revocations remain conclusive denials;
+otherwise authorization may require refresh or authenticated server fallback.
+After hard expiry, trust-dependent authorization requires synchronization or
+server authority and fails closed when unavailable. This 24-hour offline
+revocation bound is an explicit availability/security tradeoff: a disconnected
+scanner may remain unaware of a new revocation until the hard window expires.
+
+Each camera attempt is correlated with a `device_scan_id`. Persisted evidence
+may contain credential ID, nonce hash, decision code/source, trust generation,
+user-snapshot time, and scanner installation ID. Never retain raw QR content,
+raw nonces, authority/device signatures, presented email, or key material.
+Nonce correlation and short lifetimes reduce investigation ambiguity; they do
+not provide a zero-replay guarantee across disconnected scanners.
+
+## QR authority rotation and v2 compatibility
+
+Production requires `QR_AUTHORITY_ACTIVE_KEY_ID`,
+`QR_AUTHORITY_PRIVATE_KEY_BASE64`, and `QR_AUTHORITY_KEYRING_JSON`. The active
+private key must be exact PKCS#8 P-256. The keyring contains one matching active
+65-byte uncompressed P-256 public point and at most seven retiring verification
+keys; each retiring key needs a future `verify_until` Unix timestamp. Startup
+fails closed for missing, duplicate, placeholder, malformed, wrong-curve, or
+inconsistent key material.
+
+Use this staged rotation:
+
+1. Inventory the current public-key fingerprint and secret owner without
+   copying private material into tickets, repository files, or chat.
+2. Publish the new public key as trusted while the old key remains active.
+3. Wait at least the approved 24-hour Scan hard-trust window, or prove
+   equivalent supported-fleet synchronization.
+4. Switch the active private key and key ID, then force connected Pass clients
+   to renew.
+5. Keep the old public key retiring until every old credential, the 60-second
+   clock skew, and the approved offline window have elapsed.
+6. Verify supported Pass/Scan adoption and run rollback/overlap observations
+   before removing the retiring key.
+
+The backend and Scan retain strict v2 verification only for migration
+compatibility. Do not retire v2 until migrations 13/14 are safely deployed,
+dual-verifier Scan adoption and fresh trust sync are established, Pass v3
+adoption is observed, the maximum v2 credential plus skew/offline windows have
+elapsed since last issuance, physical camera pairs pass, and product/security
+owners approve the minimum supported versions and rollback plan. Repository
+tests do not satisfy these release gates.
 
 ## Abuse and traffic controls
 

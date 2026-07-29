@@ -14,6 +14,7 @@ Our QR-based system provides:
 
 - **Offline-first verification** using local SQLite databases on scanner devices
 - **Device-bound signed QR presentations** with short validity and screen-capture protection
+- **Incremental credential revocation trust** with bounded offline operation
 - **Simplified user management** through CSV-like data structure
 - **Foreground polling and synchronization** when network is available
 - **Scalable architecture** supporting 500+ users with multiple entry points
@@ -82,10 +83,24 @@ Unlike traditional online verification systems, our approach stores encrypted us
 
 #### **QR Code Security**
 
-- **Authority Signature**: the backend signs canonical event/device credentials with P-256
+- **Identity proof, not authorization**: the compact QR proves the attendee,
+  event, Pass installation, credential generation, and possession of the
+  certified device key. Current area authorization comes from the synchronized
+  event snapshot or current PostgreSQL state.
+- **Authority Signature**: the backend signs canonical v3 event/device
+  credentials with an exact P-256 key; Scan also retains a strict, separate v2
+  compatibility verifier
 - **Device Binding**: Pass signs each presentation with a per-installation SecureStore key certified by the backend credential
 - **Time-Limited Presentations**: displayed presentations rotate every 30 seconds and have a nominal 60-second lifetime; verification separately allows up to 60 seconds of clock skew
+- **Bounded Encoding**: v3 presentations are limited to 800 UTF-8 bytes and QR
+  version 20 before display
+- **Revocation Freshness**: Scan treats trust snapshots as current for 60
+  seconds, stale until the 24-hour hard expiry, and unusable after hard expiry.
+  Stale/unknown authorization decisions use authenticated server fallback when
+  available and otherwise fail closed.
 - **Anti-Screenshot Protection**: native mobile protection reduces casual capture but is not a complete replay defense
+- **Replay Correlation**: nonce hashes and credential identity support
+  correlation, but disconnected scanners cannot guarantee zero replay
 - **Tamper Detection**: canonical credential and presentation signatures provide integrity; QR content is signed plaintext, not encrypted payload data
 
 #### **Local Database Security**
@@ -110,8 +125,10 @@ Unlike traditional online verification systems, our approach stores encrypted us
 1. **Administrator Enrollment** → Pending identity plus a one-time activation
    token for approved out-of-band delivery
 2. **QR Generation** → Authority/device-signed plaintext presentations
-3. **Database Sync** → Authenticated full event snapshots stored in encrypted local databases
-4. **Local Verification** → Offline validation with audit logging
+3. **Database Sync** → Authenticated full event snapshots plus incremental QR
+   trust/revocation pages stored transactionally in encrypted local databases
+4. **Local Verification** → Offline identity proof plus current synchronized
+   authorization, with typed server fallback only for inconclusive decisions
 5. **Log Synchronization** → Batch upload with deduplication
 
 ## 📊 Database Schema
@@ -232,16 +249,22 @@ scan_logs (
 
 1. **Initial Setup**:
    - Download complete event-scoped user and area snapshots
-   - Retain the trusted event QR authority and snapshot metadata
+   - Retain the bounded authority keyring, trust generation, and non-expired
+     credential/device revocations
    - Store the data in the device's SQLCipher database
 2. **During Event**:
-   - **Primary**: Verify QR codes using local database
-   - **Logging**: Store all scans locally with timestamps
+   - **Primary**: Verify strict v2/v3 signatures and authorize against current
+     local event data
+   - **Fallback**: Ask the authenticated server only when a cryptographically
+     valid local decision is inconclusive; fail closed if unavailable
+   - **Logging**: Store every decision with idempotency and bounded evidence,
+     never the raw QR
    - **Foreground Sync**: Poll at a nominal 10-second cadence, with bounded backoff/jitter after failure, and retain manual feedback
 
 3. **Emergency Procedures**:
    - **Manual Override**: Authorized personnel can grant access with reason logging
-   - **Network Outage**: Continue within the previously authenticated 24-hour session and signed credential validity
+   - **Network Outage**: Continue only within the previously authenticated
+     session, credential bounds, and 24-hour trust hard-expiry policy
    - **Data Corruption**: Re-download database with integrity verification
 
 #### **QR Generator App Sync Flow**
@@ -572,10 +595,10 @@ POST /api/events/:id/members (admin)   Body: { user_id, role_in_event? }
 ```apis
 GET /api/qr/generate?event_id=<id>
   Headers: { Authorization: "Bearer <token>" }
-  Body: { device_id, device_public_key }
-  Response: { contract_version: "qr-credential-v2", credential, user_info, expires_at, generated_at }
+  Query: { device_id, device_public_key, protocol_version: 3 }
+  Response: { contract_version: "qr-credential-v3", credential, active_authority_key_id, registration_generation, expires_at, generated_at }
 
-POST /api/qr/verify        (deprecated alias for /api/scan/verify - same real verification)
+POST /api/qr/verify        (deprecated alias for the same verification authority)
   Body: { qr_content, area_id, event_id }
   Response: { access_granted, user, area, reason? }
 ```
@@ -584,8 +607,8 @@ POST /api/qr/verify        (deprecated alias for /api/scan/verify - same real ve
 
 ```apis
 POST /api/scan/verify       # the one real, server-side verification fallback path
-  Body: { qr_code, area_id, event_id, device_info? }
-  Response: { access_granted, user?, area?, reason? }
+  Body: { qr_code, area_id, event_id, device_scan_id, device_info?, local_evidence? }
+  Response: { access_granted, user?, area?, reason?, decision_code?, persistence }
 ```
 
 ### **Synchronization Endpoints**
@@ -595,10 +618,13 @@ GET /api/sync/users-database?event_id=<id>
   Response: { contract_version: "event-user-v2", users[], metadata: { checksum, timestamp, version, event_id } }
 
 GET /api/sync/areas-database?event_id=<id>
-  Response: { areas[], qr_authority_public_key, metadata: { checksum, timestamp, event_id } }
+  Response: { areas[], access_levels[], metadata: { checksum, timestamp, event_id } }
+
+GET /api/sync/qr-trust?event_id=<id>&cursor=<opaque>&limit=<n>
+  Response: { contract_version: "qr-trust-v1", generation, generated_at, hard_expires_at, authority_keys[], revocations[], next_cursor, checksum }
 
 POST /api/sync/scan-logs
-  Body: { logs[] /* each may include device_scan_id for de-dup */, device_id, event_id }
+  Body: { logs[] /* device_scan_id plus bounded decision evidence */, device_id, event_id }
   Response: { contract_version: "queue-ack-v2", results[], accepted, duplicates, rejected, retryable_errors, total }
 ```
 
