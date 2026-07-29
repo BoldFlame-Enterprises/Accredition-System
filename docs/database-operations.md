@@ -64,6 +64,33 @@ For a blank disposable database, `npm run setup:db` applies the same registry.
 For an existing database, use `npm run migrate:db` only after all readiness and
 restore gates pass.
 
+## Membership and notification preflight
+
+Migrations 11 and 12 are additive, but migration 11 deliberately refuses
+unknown historical membership roles. Before a hosted rollout, run this
+read-only query and record only the aggregate values:
+
+```sql
+SELECT lower(btrim(role_in_event)) AS normalized_role, COUNT(*)::integer AS count
+FROM event_members
+WHERE lower(btrim(role_in_event)) NOT IN ('attendee', 'scanner', 'admin')
+GROUP BY lower(btrim(role_in_event))
+ORDER BY normalized_role;
+```
+
+The expected result is zero rows. Do not copy user identifiers or membership
+records into the readiness evidence. An unexpected value is a stop condition:
+determine its intended authority with the data owner and add a separately
+reviewed migration. Do not silently coerce it.
+
+Migration 11 adds the named
+`event_members_role_in_event_check` constraint. Migration 12 creates the
+durable `notification_delivery_jobs` and
+`notification_delivery_attempts` tables. Before enabling a worker, verify the
+two tables and the partial claim index exist, the migration ledger has no
+pending entries, and application instances that can enqueue jobs are running a
+revision compatible with migration 12.
+
 ## Backup and isolated restore gate
 
 Use the provider's supported backup and point-in-time recovery procedures.
@@ -103,9 +130,16 @@ After separate hosted authorization:
 7. Verify schema fingerprint, row counts, constraints, representative queries,
    and application smoke tests.
 8. Resume traffic and monitor database errors, request latency, access denials,
-   queue acknowledgement outcomes, and client sync health.
+   queue acknowledgement outcomes, notification queue depth and oldest age,
+   expired leases, terminal delivery failures, and client sync health.
 9. Retain the pre-migration recovery point through the approved observation
    window.
+
+Enable notification workers only after the migration and API smoke checks
+pass. During a rolling deployment, old processes may continue serving
+non-notification traffic, but no process may execute the new worker before
+migration 12 is recorded. A worker shutdown must stop polling and finish its
+active attempt before its database pool closes.
 
 Release the Scan installation-identity migration only after the installed-base
 inventory and lost-ack reconciliation policy are approved. Source builds that
@@ -121,6 +155,10 @@ capabilities applied manually.
 Rollback is capability-specific:
 
 - prefer a reviewed forward fix for additive schema changes;
+- if notification delivery must be paused, stop workers while leaving queued
+  jobs intact; do not delete jobs or attempt history as an application rollback;
+- after a worker crash, allow the 30-second lease to expire and confirm the next
+  worker records `LEASE_EXPIRED` before retrying;
 - do not reverse timezone conversions or historical repairs automatically;
 - if integrity or data correctness is uncertain, keep writes drained and use
   the proven restore/reconciliation procedure;

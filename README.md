@@ -615,6 +615,7 @@ GET /api/analytics/export/scans.csv?event_id=<id>  # CSV export
 POST /api/notifications/register-device   Body: { event_id, token, platform }
 POST /api/notifications/unregister-device Body: { token }
 POST /api/notifications/send              (admin) Body: { event_id, title, body, user_ids? }
+GET  /api/notifications/jobs/:id?event_id=<id> (event admin) # status + attempt history
 POST /api/notifications/sync-heartbeat    Body: { device_id, app, event_id, platform? }
 GET  /api/notifications/device-status?event_id=<id>  (admin) # polled sync monitor
 
@@ -645,6 +646,7 @@ GET /api/users
 POST /api/users                (admin)
 POST /api/users/bulk-import     (admin)  Body: { csv }
 GET  /api/users/export/csv      (admin)
+POST /api/users/:id/reissue-activation (admin)
 ```
 
 ## 🧪 Testing Strategy

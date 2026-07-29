@@ -33,8 +33,10 @@ and isolated restore procedure. Confirm the exact target, certificate chain,
 backup integrity, maintenance window, rollback owner, and historical timestamp
 timezone. This repository does not automate or attest hosted backups.
 
-The current registry ends with migration 9, `account-session-authority`, and
-migration 10, `identity-enrollment-and-abuse-controls`.
+The current registry continues through migration 10,
+`identity-enrollment-and-abuse-controls`, migration 11,
+`event-membership-role-integrity`, and migration 12,
+`notification-delivery-jobs`.
 
 Do not edit an applied migration or its checksum. A mismatch is a stop
 condition.

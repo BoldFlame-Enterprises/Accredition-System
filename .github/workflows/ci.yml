@@ -160,6 +160,11 @@ jobs:
         run: >-
           npm test -- --runInBand
           server/__tests__/authorization-matrix.runtime.test.ts
+      - name: Run aggregate domain workflow contracts
+        if: matrix.application-contracts
+        run: >-
+          npm test -- --runInBand
+          server/__tests__/domain-workflows.runtime.test.ts
 
   dashboard:
     name: Web dashboard
