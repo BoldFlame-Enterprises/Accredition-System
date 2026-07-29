@@ -12,6 +12,7 @@
     "test:backend": "npm --prefix backend test -- --runInBand",
     "test:pass": "npm --prefix verigate-pass test",
     "test:scan": "npm --prefix verigate-scan test",
+    "verify:qr-contract-fixtures": "node scripts/verify-qr-contract-fixtures.js",
     "lint": "npm --prefix web-dashboard run lint && npm --prefix verigate-pass run lint && npm --prefix verigate-scan run lint",
     "doctor": "npm --prefix verigate-pass run doctor && npm --prefix verigate-scan run doctor",
     "setup:db": "npm --prefix backend run setup:db",
@@ -29,7 +30,7 @@
     "start:pass": "npm --prefix verigate-pass start",
     "start:scan": "npm --prefix verigate-scan start",
     "type-check": "npm --prefix backend run type-check && npm --prefix web-dashboard run type-check && npm --prefix verigate-pass run type-check && npm --prefix verigate-scan run type-check",
-    "validate": "npm run type-check && npm run lint && npm test && npm run build && npm run doctor"
+    "validate": "npm run verify:qr-contract-fixtures && npm run type-check && npm run lint && npm test && npm run build && npm run doctor"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
