@@ -129,7 +129,8 @@ Unlike traditional online verification systems, our approach stores encrypted us
    trust/revocation pages stored transactionally in encrypted local databases
 4. **Local Verification** → Offline identity proof plus current synchronized
    authorization, with typed server fallback only for inconclusive decisions
-5. **Log Synchronization** → Batch upload with deduplication
+5. **Log Synchronization** → Event-partitioned batch upload with durable
+   accepted/duplicate/terminal/retryable acknowledgement state
 
 ## 📊 Database Schema
 
@@ -147,6 +148,9 @@ Incidents and emergency overrides use explicit, version-checked review actions
 instead of direct status replacement. Assignment identifies the expected owner,
 while immutable activity records the administrator who actually made each
 decision. Any administrator for the event may complete an assigned review.
+Their mobile `client_record_id` is idempotent within an event, not globally.
+List APIs use bounded descending `(occurred_at, id)` cursors; the dashboard
+polls only the recent 50-row page and loads older history on demand.
 
 ### **Core Tables** (event-scoped tables shown without their `event_id INTEGER NOT NULL REFERENCES events(id)` column for brevity)
 
@@ -280,10 +284,16 @@ Neither mobile app claims supported background synchronization. Both expose manu
 
 #### **Snapshot and queue synchronization**
 
-- User and area data are complete foreground snapshots, not delta patches
+- User, area, QR trust, and active-cycle metadata are promoted in one local
+  SQLite transaction after the complete event snapshot validates; readers see
+  either the prior cycle or the complete new cycle
 - Scan logs use batches of 25 with at most four batches per cycle
 - Incidents and overrides use at most two batches of ten per queue per cycle
-- Accepted/duplicate acknowledgements mark rows synced; structured terminal rejections remain retained; transient/authentication failures remain pending and stop safely
+- Active scan selection is limited to the signed device-session event and
+  eligible retry time. Accepted/duplicate acknowledgements mark durable
+  success; structured terminal rejections remain retained without blocking
+  later eligible rows; transient/authentication failures remain pending and
+  stop safely
 
 #### **Integrity Verification**
 
@@ -640,8 +650,10 @@ GET /api/analytics/export/scans.csv?event_id=<id>  # CSV export
 
 POST /api/notifications/register-device   Body: { event_id, token, platform }
 POST /api/notifications/unregister-device Body: { token }
-POST /api/notifications/send              (admin) Body: { event_id, title, body, user_ids? }
-GET  /api/notifications/jobs/:id?event_id=<id> (event admin) # status + attempt history
+POST /api/notifications/send              (admin)
+  Body: { event_id, title, body, audience: "event", confirm_broadcast: true }
+     or { event_id, title, body, audience: "users", user_ids: [...] }
+GET  /api/notifications/jobs/:id?event_id=<id> (event admin) # job + recipient-state summary
 POST /api/notifications/sync-heartbeat    Body: { device_id, app, event_id, platform? }
 GET  /api/notifications/device-status?event_id=<id>  (admin) # polled sync monitor
 
@@ -654,12 +666,14 @@ POST /api/devices/events/:event_id/registrations/:id/blacklist
 POST /api/devices/events/:event_id/registrations/:id/unblacklist
 POST /api/devices/audit-credential          # Scan-only bounded deregistration upload
 
-GET  /api/incidents?event_id=<id>          (admin)
+GET  /api/incidents?event_id=<id>&limit=<1..200>&cursor=<opaque> (admin)
+GET  /api/incidents/summary?event_id=<id>  (admin)
 POST /api/incidents                        Body: { event_id, description, category?, area_id?, client_record_id, occurred_at }
   Response: { contract_version: "queue-ack-v2", client_record_id, status, record? }
 POST /api/incidents/:id/actions/:action     # assign, begin-review, resolve, dismiss, reopen
 GET  /api/incidents/:id/activity
-GET  /api/incidents/overrides?event_id=<id> (admin)
+GET  /api/incidents/overrides?event_id=<id>&limit=<1..200>&cursor=<opaque> (admin)
+GET  /api/incidents/overrides/summary?event_id=<id> (admin)
 POST /api/incidents/overrides              Body: { event_id, area_id, reason, access_granted?, user_id?, client_record_id, occurred_at }
   Response: { contract_version: "queue-ack-v2", client_record_id, status, record? }
 POST /api/incidents/overrides/:id/actions/:action # assign, begin-review, complete-review, reopen
@@ -734,6 +748,8 @@ DB_PASSWORD=your_secure_password
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
+REDIS_REQUIRED=false
+REDIS_CONNECT_TIMEOUT_MS=1500
 
 # JWT Security
 JWT_ACCOUNT_ACCESS_SECRET=independent_random_value_of_at_least_32_bytes

@@ -39,32 +39,42 @@ memory, and event-loop delay.
 
 ## Notification delivery jobs
 
-`POST /api/notifications/send` validates and normalizes the complete command,
-persists a job, and returns `202` with `job_id` and `queued` status. Provider
-delivery never runs inside the API request. Query
+`POST /api/notifications/send` requires one explicit audience:
+`{ audience: "event", confirm_broadcast: true }` or
+`{ audience: "users", user_ids: [...] }`. Mixed, empty, duplicate,
+non-member, omitted, or unconfirmed audiences are rejected before enqueue.
+The event members and their active registration-backed device tokens are
+snapshotted when the job is created, so later token changes cannot silently
+expand the intended audience. The API returns `202` with `job_id` and `queued`
+status; provider delivery never runs inside the request. Query
 `GET /api/notifications/jobs/:id?event_id=<id>` for event-scoped status,
-provider totals, and ordered attempt history. Global administrators and active
+recipient-state totals, and ordered history. Global administrators and active
 administrators of that event may read it; a job from another event is not
-returned. Attempt results identify each destination by database token id, user
-id, platform, status, and provider error code; raw push tokens are never stored
-in job history.
+returned. Raw push tokens are not returned by the status API.
 
 The in-process worker:
 
-1. claims one queued or expired job with `FOR UPDATE SKIP LOCKED`;
-2. atomically records the attempt, increments its number, and leases it for 30
-   seconds;
-3. sends FCM batches of at most 500 and APNs requests with concurrency 20 and
-   ten-second deadlines;
-4. records an immutable attempt row and either completes or schedules a bounded
-   exponential retry; and
-5. adds job/attempt identifiers to provider data so clients can de-duplicate.
+1. claims one available recipient row with `FOR UPDATE SKIP LOCKED`;
+2. increments its bounded attempt count and assigns an unguessable lease
+   fencing token;
+3. renews the lease before half its lifetime while provider work remains in
+   flight;
+4. sends only the snapshotted token, with provider deadlines and bounded
+   concurrency;
+5. finishes only if owner, fencing token, and attempt number still match; and
+6. aggregates the parent as `delivered`, `partially_delivered`,
+   `blocked_configuration`, or `failed`.
 
-Jobs have at most three attempts by default. Expired processing leases are
-recoverable after a crash and the abandoned attempt is retained with a
-`LEASE_EXPIRED` code. Shutdown stops polling and waits for the active attempt
-before PostgreSQL disconnects.
+Sent recipients are never reclaimed because another recipient failed.
+Retryable failures receive bounded exponential delay. Attributable permanent
+token failures deactivate that exact event token. APNs-disabled work becomes
+`blocked_configuration`, never delivered. A stale worker whose lease was
+reclaimed cannot finish or requeue the row. Shutdown stops polling and waits
+for the worker's active operation before PostgreSQL disconnects.
 
-Monitor queue depth, oldest queued age, expired leases, terminal failures,
-provider failure ratios, and worker loop errors. Push is an accelerator only;
-authorization continues to come from the server and foreground synchronization.
+Monitor recipient queue depth and oldest availability time, processing leases
+past expiry, retry counts, terminal/permanent rows, partial jobs,
+blocked-configuration jobs, provider latency/error ratios, and worker loop
+errors. Alert on a growing oldest age, repeated lease recovery, or sustained
+partial/blocked states. Push is an accelerator only; authorization continues
+to come from the server and foreground synchronization.

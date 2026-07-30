@@ -64,7 +64,7 @@ For a blank disposable database, `npm run setup:db` applies the same registry.
 For an existing database, use `npm run migrate:db` only after all readiness and
 restore gates pass.
 
-## Membership and notification preflight
+## Membership, notification, and case-identity preflight
 
 Migrations 11 and 12 are additive, but migration 11 deliberately refuses
 unknown historical membership roles. Before a hosted rollout, run this
@@ -90,6 +90,34 @@ durable `notification_delivery_jobs` and
 two tables and the partial claim index exist, the migration ledger has no
 pending entries, and application instances that can enqueue jobs are running a
 revision compatible with migration 12.
+
+Migration 15 adds `notification_recipient_deliveries`. Before enabling its
+worker, verify the recipient claim/job-status indexes, fencing-token columns,
+and status constraints exist. API instances must snapshot intended active
+registration-backed token rows at enqueue; workers must claim and finish child
+rows, not the legacy parent-job lease.
+
+Migration 16 replaces global incident/override client-record uniqueness with
+partial unique indexes on `(event_id, client_record_id)`. Run these read-only
+preflights before a hosted rollout:
+
+```sql
+SELECT event_id, client_record_id, COUNT(*)::integer AS count
+FROM incidents
+WHERE client_record_id IS NOT NULL
+GROUP BY event_id, client_record_id
+HAVING COUNT(*) > 1;
+
+SELECT event_id, client_record_id, COUNT(*)::integer AS count
+FROM emergency_overrides
+WHERE client_record_id IS NOT NULL
+GROUP BY event_id, client_record_id
+HAVING COUNT(*) > 1;
+```
+
+Both expected results are zero rows. Record only aggregate counts in general
+evidence; do not copy case content. A duplicate within one event is a stop
+condition.
 
 ## Backup and isolated restore gate
 
@@ -135,11 +163,11 @@ After separate hosted authorization:
 9. Retain the pre-migration recovery point through the approved observation
    window.
 
-Enable notification workers only after the migration and API smoke checks
-pass. During a rolling deployment, old processes may continue serving
-non-notification traffic, but no process may execute the new worker before
-migration 12 is recorded. A worker shutdown must stop polling and finish its
-active attempt before its database pool closes.
+Enable recipient notification workers only after migrations 12 and 15 and the
+API smoke checks pass. During a rolling deployment, old processes may continue
+serving non-notification traffic, but no process may execute the recipient
+worker before migration 15 is recorded. A worker shutdown must stop polling
+and finish its active provider operation before its database pool closes.
 
 Release the Scan installation-identity migration only after the installed-base
 inventory and lost-ack reconciliation policy are approved. Source builds that
@@ -155,10 +183,12 @@ capabilities applied manually.
 Rollback is capability-specific:
 
 - prefer a reviewed forward fix for additive schema changes;
-- if notification delivery must be paused, stop workers while leaving queued
-  jobs intact; do not delete jobs or attempt history as an application rollback;
-- after a worker crash, allow the 30-second lease to expire and confirm the next
-  worker records `LEASE_EXPIRED` before retrying;
+- if notification delivery must be paused, stop workers while leaving jobs and
+  recipient rows intact; do not delete delivery history as an application
+  rollback;
+- after a worker crash, allow the recipient lease to expire. The next worker
+  may reclaim it with a new fencing token; the stale worker must be unable to
+  finish;
 - do not reverse timezone conversions or historical repairs automatically;
 - if integrity or data correctness is uncertain, keep writes drained and use
   the proven restore/reconciliation procedure;

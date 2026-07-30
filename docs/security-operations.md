@@ -19,7 +19,10 @@ verified.
   `DB_SSL_CA_BASE64` explicitly.
 - Leave `REDIS_REQUIRED=false` when cache fallback is acceptable. Set it to
   `true` only where Redis loss must prevent readiness. Initial connection time
-  is bounded by `REDIS_CONNECT_TIMEOUT_MS`.
+  is bounded by `REDIS_CONNECT_TIMEOUT_MS`. Post-start `error` and `end`
+  transitions remove required readiness immediately; both modes use one
+  bounded recovery loop and cache commands use only a client reporting
+  `isReady`.
 
 Production startup rejects missing, repeated, short, or placeholder JWT keys.
 
@@ -33,11 +36,19 @@ and isolated restore procedure. Confirm the exact target, certificate chain,
 backup integrity, maintenance window, rollback owner, and historical timestamp
 timezone. This repository does not automate or attest hosted backups.
 
-The current registry continues through migration 13,
-`qr-credential-trust`, and migration 14, `scan-decision-evidence`. Migration 13
-adds credential/revocation and trust-generation authority. Migration 14 adds
-nullable, bounded scan-decision evidence. Apply both only through the migration
-runner after the normal backup/restore and historical-lineage preflight.
+The current registry continues through migration 16. Migration 13
+`qr-credential-trust` adds credential/revocation and trust-generation
+authority; migration 14 `scan-decision-evidence` adds nullable, bounded
+scan-decision evidence; migration 15 `notification-recipient-delivery` adds
+fenced recipient-level delivery; and migration 16 `event-case-idempotency`
+makes client record identity event-scoped and adds case-history cursor indexes.
+Apply them only through the migration runner after the normal backup/restore
+and historical-lineage preflight.
+
+Before migration 16, aggregate duplicate `(event_id, client_record_id)` values
+for incidents and overrides. Any duplicate within one event is a stop
+condition requiring data-owner reconciliation; the migration will refuse to
+guess. Reusing the same client identity in different events is valid.
 
 Do not edit an applied migration or its checksum. A mismatch is a stop
 condition.
@@ -69,6 +80,12 @@ server revocation and always clears local authority even when the network call
 fails. Device deregistration revokes normal authority; a short Scan audit
 credential can upload only eligible pre-cutoff records. Blacklisting permits no
 final upload.
+
+Account event discovery happens before mobile session exchange. Once Pass or
+Scan has a device session, synchronization uses the signed and persisted
+registration event and does not call account-only event discovery. Mobile HTTP
+operations and refresh share a deadline; timed-out idempotent writes retain
+their original idempotency key when retried.
 
 ## QR trust, offline decisions, and replay limits
 
