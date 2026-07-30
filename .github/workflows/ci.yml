@@ -131,6 +131,7 @@ jobs:
       DB_SSL: false
       REDIS_HOST: localhost
       REDIS_PORT: 6379
+      REDIS_REQUIRED: true
     steps:
       - name: Check out repository and submodules
         uses: actions/checkout@v6
@@ -168,6 +169,11 @@ jobs:
         run: >-
           npm test -- --runInBand
           server/__tests__/domain-workflows.runtime.test.ts
+      - name: Run Redis loss and recovery contracts
+        if: matrix.application-contracts
+        run: >-
+          npm test -- --runInBand
+          server/__tests__/redis-lifecycle.runtime.test.ts
 
   dashboard:
     name: Web dashboard
