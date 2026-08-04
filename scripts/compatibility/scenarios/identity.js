@@ -223,5 +223,5 @@ export async function runIdentityScenarios(context) {
       { name: 'three-decisions-persisted', met: persistedDecisions === 3, expected: 3, actual: persistedDecisions },
     ],
   });
-  return { fixture, scan };
+  return { fixture, scan, pass };
 }
