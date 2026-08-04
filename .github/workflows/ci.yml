@@ -42,6 +42,24 @@ jobs:
       - name: Verify QR contract fixtures
         run: npm run verify:qr-contract-fixtures
 
+      - name: Reject unsupported public capability claims
+        run: |
+          node -e '
+            const fs = require("fs");
+            const checks = [
+              ["README.md", "supporting 500+ users"],
+              ["verigate-scan/README.md", "multiple scanner accounts can log in/out on one device"],
+              ["verigate-scan/README.md", "Every app start verifies a SHA-256 checksum of the database contents"],
+              ["README.md", "Repository release evidence covers signed Android cloud build/publication"],
+              ["verigate-scan/README.md", "Repository release evidence covers signed Android cloud build/publication"]
+            ];
+            for (const [path, unsupported] of checks) {
+              if (fs.readFileSync(path, "utf8").includes(unsupported)) {
+                throw new Error(`${path} contains unsupported claim: ${unsupported}`);
+              }
+            }
+          '
+
       - name: Validate Docker Compose configuration
         run: docker compose config --quiet
 
@@ -235,5 +253,6 @@ jobs:
       - run: npm ci
       - run: npm run type-check
       - run: npm run lint
-      - run: npm test
+      - name: Run deterministic mobile contracts
+        run: npm test
       - run: npm run doctor
