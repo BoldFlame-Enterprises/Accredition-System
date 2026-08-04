@@ -17,7 +17,9 @@ Our QR-based system provides:
 - **Incremental credential revocation trust** with bounded offline operation
 - **Simplified user management** through CSV-like data structure
 - **Foreground polling and synchronization** when network is available
-- **Scalable architecture** supporting 500+ users with multiple entry points
+- **Bounded operational workflows** with paginated administration and
+  event-partitioned synchronization; representative fleet-scale performance
+  remains a live-validation responsibility
 
 ### **Key Innovation**
 
@@ -71,11 +73,13 @@ Unlike traditional online verification systems, our approach stores encrypted us
 - **Key Features**:
   - **Offline QR verification** using an encrypted (SQLCipher, via `@op-engineering/op-sqlite`) local SQLite database
   - **Real-time camera scanning** with instant feedback via `expo-camera`
-  - **Role-based access** (volunteer, security, admin privileges)
+  - **Installation-bound operator authority** with explicit event selection
+    before a Scan device session is issued
   - **Visual/audio feedback** (green/red indicators with distinct tones via `expo-av`), dark theme for low-light use
   - **Area selection, manual entry fallback, emergency override, and incident reporting**
   - **Local scan logging** with automatic sync (retry + backoff) when online
-  - **Multi-area support** for volunteers working different zones
+  - **Event-scoped area selection** reconciled against each synchronized
+    authorization snapshot
 
 ## 🔐 Security Architecture
 
@@ -106,9 +110,15 @@ Unlike traditional online verification systems, our approach stores encrypted us
 #### **Local Database Security**
 
 - **SQLite Encryption**: Local databases encrypted with SQLCipher
-- **Device-Specific Keys**: Encryption keys tied to device hardware
-- **Integrity Verification**: SHA-256 checksums validate database integrity
-- **Data Expiration**: Local data auto-expires after event completion
+- **Protected Local Keys**: random database keys are stored through each
+  platform's secure-storage service; hardware backing depends on the installed
+  platform and device and requires native validation
+- **Integrity Verification**: startup checks require native SQLCipher capability
+  and SQLite `quick_check`; failure enters an explicit recovery flow rather than
+  automatically destroying audit evidence
+- **Bounded Retention**: acknowledged and terminal audit rows, cached identities,
+  and ended-event data use separate event-aware retention rules; unresolved
+  queue evidence is preserved or quarantined for operator recovery
 - **Sync Validation**: HTTPS/authentication protect transport; snapshot checksums describe content, while signed QR authority data is verified independently
 
 #### **Authentication & Authorization**
@@ -856,7 +866,12 @@ For local SQLCipher encryption and the rest of the mobile feature set (biometric
 
 ## 🧭 Future Work
 
-Repository release evidence covers signed Android cloud build/publication for an exact source revision. It does not establish installation, physical-device notification/camera/biometric/SQLCipher behavior, process-kill recovery, provider delivery, or any iOS behavior. APNs remains gated off by default and requires separate provider/device validation. Scan intentionally remains local-notification-only and cancels its stale-session warning on logout.
+Repository tests validate deterministic configuration, migration, authorization,
+queue, retention, and UI contracts. They do not establish a current APK/IPA
+build, installation, physical-device notification/camera/biometric/SQLCipher
+behavior, process-kill recovery, provider delivery, fleet performance, or hosted
+end-to-end behavior. APNs remains gated off by default and requires separate
+provider/device validation. Scan intentionally remains local-notification-only.
 
 ## 🤝 Contributing
 
