@@ -47,6 +47,27 @@ export async function runBrowserSmoke(context) {
   });
 }
 
+export async function runDashboardDomainSetup(context, fixtureOutput) {
+  await runCommand('npm', [
+    'exec', '--', 'playwright', 'test',
+    '--config', 'playwright.config.ts',
+    'tests/compatibility/domain-setup.spec.ts',
+  ], {
+    cwd: path.join(repoRoot, 'web-dashboard'),
+    env: {
+      ...process.env,
+      COMPAT_BASE_URL: context.dashboardUrl,
+      COMPAT_RUN_ID: context.runId,
+      COMPAT_FIXTURE_OUTPUT: fixtureOutput,
+      COMPAT_ADMIN_EMAIL: 'admin@test.com',
+      COMPAT_ADMIN_PASSWORD: 'password123',
+      PLAYWRIGHT_HTML_REPORT: path.join(context.evidenceDirectory, 'domain-setup-report'),
+      PLAYWRIGHT_OUTPUT_DIR: path.join(context.evidenceDirectory, 'domain-setup-output'),
+    },
+    inherit: true,
+  });
+}
+
 export async function collectLogs(context) {
   const result = await runCommand('docker', composeArgs(context, ['logs', '--no-color', '--timestamps']), {
     cwd: repoRoot,

@@ -16,6 +16,7 @@
     "compatibility:preflight": "node scripts/compatibility/cli.js preflight",
     "compatibility:up": "node scripts/compatibility/cli.js up",
     "compatibility:run": "node scripts/compatibility/cli.js run",
+    "compatibility:identity": "node scripts/compatibility/cli.js run --scenario-group identity",
     "compatibility:collect": "node scripts/compatibility/cli.js collect",
     "compatibility:down": "node scripts/compatibility/cli.js down",
     "compatibility:test": "node --test scripts/compatibility/test/*.test.js",

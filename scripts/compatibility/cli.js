@@ -7,6 +7,7 @@ import {
 import { preflight } from './lib/preflight.js';
 import { collectLogs, runBrowserSmoke, startStack, stopStack } from './lib/runtime.js';
 import { runHarnessSmoke } from './scenarios/00-harness-smoke.js';
+import { runIdentityScenarios } from './scenarios/identity.js';
 
 function option(name) {
   const index = process.argv.indexOf(name);
@@ -64,6 +65,7 @@ async function main() {
     await startStack(context);
     await runHarnessSmoke(context, { injectAssertionFailure: has('--inject-assertion-failure') });
     if (!has('--skip-browser')) await runBrowserSmoke(context);
+    if (option('--scenario-group') === 'identity') await runIdentityScenarios(context);
   } catch (error) {
     failure = error;
   } finally {
