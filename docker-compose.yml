@@ -1,8 +1,20 @@
+x-database-environment: &database-environment
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: accreditation_system
+  DB_USER: postgres
+  DB_PASSWORD: postgres
+
+x-backend-image: &backend-image
+  build:
+    context: ./backend
+    dockerfile: Dockerfile
+  image: verigate-backend:${VERIGATE_BACKEND_IMAGE_TAG:-local}
+
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: accreditation-postgres
     environment:
       POSTGRES_DB: accreditation_system
       POSTGRES_USER: postgres
@@ -22,7 +34,6 @@ services:
   # Redis Cache (Optional)
   redis:
     image: redis:7-alpine
-    container_name: accreditation-redis
     ports:
       - "6379:6379"
     volumes:
@@ -35,35 +46,46 @@ services:
     networks:
       - accreditation-network
 
-  # Backend API Server
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: accreditation-backend
+  # Apply the immutable migration registry before the API can start. This is a
+  # no-op when the database is already current and exits non-zero on failure.
+  migration:
+    <<: *backend-image
+    command: ["node", "dist/scripts/run-migrations.js"]
     environment:
-      - NODE_ENV=production
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=accreditation_system
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - JWT_ACCOUNT_ACCESS_SECRET=${JWT_ACCOUNT_ACCESS_SECRET:?JWT_ACCOUNT_ACCESS_SECRET is required}
-      - JWT_ACCOUNT_REFRESH_SECRET=${JWT_ACCOUNT_REFRESH_SECRET:?JWT_ACCOUNT_REFRESH_SECRET is required}
-      - JWT_DEVICE_ACCESS_SECRET=${JWT_DEVICE_ACCESS_SECRET:?JWT_DEVICE_ACCESS_SECRET is required}
-      - JWT_DEVICE_REFRESH_SECRET=${JWT_DEVICE_REFRESH_SECRET:?JWT_DEVICE_REFRESH_SECRET is required}
-      - JWT_AUDIT_ACCESS_SECRET=${JWT_AUDIT_ACCESS_SECRET:?JWT_AUDIT_ACCESS_SECRET is required}
-      - JWT_ISSUER=${JWT_ISSUER:?JWT_ISSUER is required}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
-      - QR_AUTHORITY_PRIVATE_KEY_BASE64=${QR_AUTHORITY_PRIVATE_KEY_BASE64:-}
-      - APNS_ENABLED=false
-    ports:
-      - "3000:3000"
+      <<: *database-environment
+      NODE_ENV: production
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - accreditation-network
+    restart: "no"
+
+  # Backend API Server
+  backend:
+    <<: *backend-image
+    environment:
+      <<: *database-environment
+      NODE_ENV: production
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      JWT_ACCOUNT_ACCESS_SECRET: ${JWT_ACCOUNT_ACCESS_SECRET:?JWT_ACCOUNT_ACCESS_SECRET is required}
+      JWT_ACCOUNT_REFRESH_SECRET: ${JWT_ACCOUNT_REFRESH_SECRET:?JWT_ACCOUNT_REFRESH_SECRET is required}
+      JWT_DEVICE_ACCESS_SECRET: ${JWT_DEVICE_ACCESS_SECRET:?JWT_DEVICE_ACCESS_SECRET is required}
+      JWT_DEVICE_REFRESH_SECRET: ${JWT_DEVICE_REFRESH_SECRET:?JWT_DEVICE_REFRESH_SECRET is required}
+      JWT_AUDIT_ACCESS_SECRET: ${JWT_AUDIT_ACCESS_SECRET:?JWT_AUDIT_ACCESS_SECRET is required}
+      JWT_ISSUER: ${JWT_ISSUER:?JWT_ISSUER is required}
+      AUTH_ABUSE_HMAC_SECRET: ${AUTH_ABUSE_HMAC_SECRET:?AUTH_ABUSE_HMAC_SECRET is required}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      QR_AUTHORITY_ACTIVE_KEY_ID: ${QR_AUTHORITY_ACTIVE_KEY_ID:?QR_AUTHORITY_ACTIVE_KEY_ID is required}
+      QR_AUTHORITY_PRIVATE_KEY_BASE64: ${QR_AUTHORITY_PRIVATE_KEY_BASE64:?QR_AUTHORITY_PRIVATE_KEY_BASE64 is required}
+      QR_AUTHORITY_KEYRING_JSON: ${QR_AUTHORITY_KEYRING_JSON:?QR_AUTHORITY_KEYRING_JSON is required}
+      APNS_ENABLED: "false"
+    ports:
+      - "3000:3000"
+    depends_on:
+      migration:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     healthcheck:
@@ -81,7 +103,6 @@ services:
     build:
       context: ./web-dashboard
       dockerfile: Dockerfile
-    container_name: accreditation-web
     ports:
       - "80:80"
     depends_on:
