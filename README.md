@@ -827,6 +827,43 @@ APNS_PRODUCTION=false
 - **Read Replicas**: Separate read/write workloads
 - **Caching**: Redis for frequent database queries
 
+## Reproducible assembled-system compatibility
+
+The repository includes a disposable compatibility runner that starts real
+PostgreSQL and Redis services, applies the ordered migrations to a blank
+database, builds and serves the production backend and Dashboard images, drives
+a real Chromium browser, and exercises production-shared Pass and Scan workflow
+code. It generates matching ephemeral secrets and QR authority material for
+each isolated run and removes them during successful cleanup.
+
+```bash
+git submodule update --init --recursive
+npm run ci:all
+npm --prefix web-dashboard exec -- playwright install chromium
+npm run compatibility:preflight
+npm run compatibility:run          # blank-stack readiness and browser smoke
+npm run compatibility:convergence  # all 13 compatibility scenarios
+npm run compatibility:verify       # manifests, hashes, results, and redaction
+```
+
+Evidence is written to the ignored `compatibility-artifacts/<run-id>/`
+directory. CI runs both the smoke and full workflows and preserves redacted
+manifests, service logs, browser reports, and screenshots on success or failure.
+See [the quick start](QUICK_START.md) for the scenario list, expected runtime,
+failure diagnosis, safe cleanup, and exact external-hosting override.
+
+The root container uses relative `/api` requests through the Dashboard Nginx
+proxy. An externally hosted Dashboard must set an explicit `VITE_API_URL` at
+build time and the backend must allow that exact origin through `CORS_ORIGINS`;
+wildcard credentialed origins remain prohibited.
+
+This compatibility evidence is assembled disposable-runtime proof. Mobile
+drivers substitute camera transport, installed SQLCipher, secure storage,
+biometrics, OS connectivity, audio, and notification providers while importing
+the production-shared protocol and workflow code. It does not prove installed
+applications, physical-device behavior, provider delivery, hosted state,
+APK/IPA artifacts, or released builds.
+
 ## 🎬 End-to-end demo (no mocks, against the real backend)
 
 ```bash

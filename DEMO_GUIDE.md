@@ -2,6 +2,32 @@
 
 This guide distinguishes the local demonstration from backend-integrated behavior.
 
+## Disposable assembled compatibility
+
+Before arranging devices, the repository-level compatibility workflow can prove
+blank-database migration, backend/Dashboard startup, browser administration,
+production-shared Pass/Scan protocol behavior, offline decisions, retry
+idempotency, revocation convergence, operational review, event isolation,
+dependency recovery, and exact expiry boundaries:
+
+```bash
+npm run ci:all
+npm --prefix web-dashboard exec -- playwright install chromium
+npm run compatibility:convergence
+npm run compatibility:verify
+```
+
+The runner owns an isolated Docker project and writes ignored, redacted evidence
+under `compatibility-artifacts/<run-id>/`. See [the quick start](QUICK_START.md)
+for preflight, smoke-only, diagnostics, runtime, origin configuration, and safe
+cleanup commands.
+
+This workflow uses a real browser, backend, PostgreSQL, and Redis. Pass and Scan
+drivers import production-shared application code but substitute camera,
+installed SQLCipher, SecureStore, biometrics, physical networking, audio, and
+push providers. Complete the installed-device checks below before making claims
+about those capabilities or about hosted/released builds.
+
 ## Required build
 
 Both mobile apps require native SQLCipher and therefore do not run in Expo Go. Build custom Android development clients or full native/EAS builds. Two devices are preferred for the Pass-to-Scan camera workflow.
