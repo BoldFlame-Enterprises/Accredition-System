@@ -188,6 +188,8 @@ pnpm-lock.yaml
 coverage/
 *.coverage
 .jest/
+.compatibility/
+compatibility-artifacts/
 
 # Security
 *.pem

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verigate.local/schemas/compatibility-evidence-v1.json",
+  "title": "VeriGate compatibility evidence",
+  "type": "object",
+  "required": ["schema_version", "scenario", "run", "repositories", "runtime", "fixtures", "steps", "assertions", "native_adapter_substitutions", "result"],
+  "properties": {
+    "schema_version": { "const": "verigate.compatibility.evidence.v1" },
+    "scenario": {
+      "type": "object",
+      "required": ["id", "name", "started_at", "ended_at"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^(00|0[1-9]|1[0-3])$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "started_at": { "type": "string", "format": "date-time" },
+        "ended_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "run": { "type": "object", "required": ["id"] },
+    "repositories": { "type": "object" },
+    "runtime": { "type": "object" },
+    "fixtures": { "type": "object" },
+    "steps": { "type": "array", "minItems": 1 },
+    "assertions": { "type": "array", "minItems": 1 },
+    "native_adapter_substitutions": { "type": "array" },
+    "result": { "enum": ["passed", "failed", "blocked"] }
+  },
+  "additionalProperties": false
+}

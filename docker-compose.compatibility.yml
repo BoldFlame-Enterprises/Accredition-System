@@ -1,0 +1,114 @@
+name: ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is required}
+
+x-compatibility-labels: &compatibility-labels
+  dev.verigate.compatibility: "true"
+  dev.verigate.compatibility.run: ${COMPAT_RUN_ID:?COMPAT_RUN_ID is required}
+
+x-database-environment: &database-environment
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: ${COMPAT_DB_NAME:?COMPAT_DB_NAME is required}
+  DB_USER: postgres
+  DB_PASSWORD: ${COMPAT_DB_PASSWORD:?COMPAT_DB_PASSWORD is required}
+
+x-backend-image: &backend-image
+  build:
+    context: ./backend
+    dockerfile: Dockerfile
+  image: verigate-compat-backend:${COMPAT_IMAGE_TAG:?COMPAT_IMAGE_TAG is required}
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    labels: *compatibility-labels
+    environment:
+      POSTGRES_DB: ${COMPAT_DB_NAME}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${COMPAT_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [compatibility]
+
+  redis:
+    image: redis:7-alpine
+    labels: *compatibility-labels
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [compatibility]
+
+  migration:
+    <<: *backend-image
+    labels: *compatibility-labels
+    command: ["node", "dist/scripts/run-migrations.js"]
+    environment:
+      <<: *database-environment
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [compatibility]
+    restart: "no"
+
+  backend:
+    <<: *backend-image
+    labels: *compatibility-labels
+    environment:
+      <<: *database-environment
+      NODE_ENV: production
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_REQUIRED: "true"
+      JWT_ACCOUNT_ACCESS_SECRET: ${JWT_ACCOUNT_ACCESS_SECRET}
+      JWT_ACCOUNT_REFRESH_SECRET: ${JWT_ACCOUNT_REFRESH_SECRET}
+      JWT_DEVICE_ACCESS_SECRET: ${JWT_DEVICE_ACCESS_SECRET}
+      JWT_DEVICE_REFRESH_SECRET: ${JWT_DEVICE_REFRESH_SECRET}
+      JWT_AUDIT_ACCESS_SECRET: ${JWT_AUDIT_ACCESS_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER}
+      AUTH_ABUSE_HMAC_SECRET: ${AUTH_ABUSE_HMAC_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      QR_AUTHORITY_ACTIVE_KEY_ID: ${QR_AUTHORITY_ACTIVE_KEY_ID}
+      QR_AUTHORITY_PRIVATE_KEY_BASE64: ${QR_AUTHORITY_PRIVATE_KEY_BASE64}
+      QR_AUTHORITY_KEYRING_JSON: ${QR_AUTHORITY_KEYRING_JSON}
+      APNS_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${COMPAT_BACKEND_PORT:?COMPAT_BACKEND_PORT is required}:3000"
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    networks: [compatibility]
+
+  web-dashboard:
+    build:
+      context: ${COMPAT_DASHBOARD_CONTEXT:?COMPAT_DASHBOARD_CONTEXT is required}
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    image: verigate-compat-dashboard:${COMPAT_IMAGE_TAG}
+    labels: *compatibility-labels
+    ports:
+      - "127.0.0.1:${COMPAT_DASHBOARD_PORT:?COMPAT_DASHBOARD_PORT is required}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [compatibility]
+
+networks:
+  compatibility:
+    labels: *compatibility-labels
+
+volumes: {}
