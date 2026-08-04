@@ -85,3 +85,63 @@ export async function writeEvidence(directory, manifest) {
 export function assertRedactedText(text, label) {
   scanSecrets(String(text), label);
 }
+
+async function filesUnder(directory) {
+  const files = [];
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const target = path.join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await filesUnder(target));
+    if (entry.isFile()) files.push(target);
+  }
+  return files;
+}
+
+export async function validateEvidenceArtifacts(directory, options = {}) {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  const manifestFiles = entries
+    .filter((entry) => entry.isFile() && /^\d{2}-[a-z0-9-]+\.json$/.test(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+  if (manifestFiles.length === 0) throw new Error('No compatibility evidence manifests found');
+
+  const manifests = [];
+  for (const name of manifestFiles) {
+    const file = path.join(directory, name);
+    const encoded = await fs.readFile(file);
+    const manifest = validateEvidence(JSON.parse(encoded.toString('utf8')));
+    const digest = crypto.createHash('sha256').update(encoded).digest('hex');
+    const sidecar = (await fs.readFile(`${file}.sha256`, 'utf8')).trim();
+    if (sidecar !== `${digest}  ${name}`) throw new Error(`Evidence hash mismatch: ${name}`);
+    manifests.push(manifest);
+  }
+
+  const runIds = new Set(manifests.map((manifest) => manifest.run.id));
+  if (runIds.size !== 1) throw new Error('Evidence manifests do not belong to one run');
+  if (manifests.some((manifest) => manifest.result !== 'passed')) {
+    throw new Error('Evidence directory contains a non-passing scenario');
+  }
+  if (options.expectedScenarioIds) {
+    const actual = manifests.map((manifest) => manifest.scenario.id).sort();
+    const expected = [...options.expectedScenarioIds].sort();
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+      throw new Error(`Evidence scenario set mismatch: expected ${expected.join(',')}; found ${actual.join(',')}`);
+    }
+  }
+
+  const sensitiveValues = (options.sensitiveValues ?? [])
+    .filter((value) => typeof value === 'string' && value.length >= 8)
+    .map((value) => Buffer.from(value));
+  for (const file of await filesUnder(directory)) {
+    const encoded = await fs.readFile(file);
+    for (const sensitive of sensitiveValues) {
+      if (encoded.includes(sensitive)) {
+        throw new Error(`Generated secret value detected in artifact: ${path.relative(directory, file)}`);
+      }
+    }
+    if (/\.(?:json|log|txt|html|xml|css|js)$/i.test(file)) {
+      assertRedactedText(encoded.toString('utf8'), path.relative(directory, file));
+    }
+  }
+
+  return { runId: manifests[0].run.id, scenarios: manifests.map((manifest) => manifest.scenario.id) };
+}

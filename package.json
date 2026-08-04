@@ -19,6 +19,7 @@
     "compatibility:identity": "node scripts/compatibility/cli.js run --scenario-group identity",
     "compatibility:convergence": "node scripts/compatibility/cli.js run --scenario-group convergence",
     "compatibility:collect": "node scripts/compatibility/cli.js collect",
+    "compatibility:verify": "node scripts/compatibility/cli.js verify",
     "compatibility:down": "node scripts/compatibility/cli.js down",
     "compatibility:test": "node --test scripts/compatibility/test/*.test.js",
     "lint": "npm --prefix web-dashboard run lint && npm --prefix verigate-pass run lint && npm --prefix verigate-scan run lint",

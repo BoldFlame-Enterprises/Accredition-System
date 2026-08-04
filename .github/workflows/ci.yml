@@ -256,3 +256,92 @@ jobs:
       - name: Run deterministic mobile contracts
         run: npm test
       - run: npm run doctor
+
+  compatibility-smoke:
+    name: Assembled blank-stack smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository and submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            web-dashboard/package-lock.json
+
+      - name: Install smoke-driver dependencies
+        run: |
+          npm ci
+          npm --prefix backend ci
+          npm --prefix web-dashboard ci
+
+      - name: Install compatibility browser
+        working-directory: web-dashboard
+        run: npm exec -- playwright install --with-deps chromium
+
+      - name: Validate compatibility harness contracts
+        run: npm run compatibility:test
+
+      - name: Run blank-stack smoke with ephemeral authority material
+        run: npm run compatibility:run
+
+      - name: Upload redacted smoke evidence and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: compatibility-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  compatibility-full:
+    name: Assembled identity and access compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository and submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            web-dashboard/package-lock.json
+            verigate-pass/package-lock.json
+            verigate-scan/package-lock.json
+
+      - name: Install all compatibility dependencies
+        run: npm run ci:all
+
+      - name: Install compatibility browser
+        working-directory: web-dashboard
+        run: npm exec -- playwright install --with-deps chromium
+
+      - name: Validate compatibility harness contracts
+        run: npm run compatibility:test
+
+      - name: Run all assembled compatibility scenarios
+        run: npm run compatibility:convergence
+
+      - name: Upload redacted compatibility evidence and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-full-${{ github.run_id }}-${{ github.run_attempt }}
+          path: compatibility-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
